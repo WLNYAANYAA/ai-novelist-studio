@@ -402,7 +402,13 @@ async function loadConv(id) {
 }
 
 async function newConversation() {
-  const conv = await api('/api/conversations', { method: 'POST' });
+  // 名前入力を求める。キャンセル・空欄なら従来通り自動タイトルで作成
+  const name = await appPrompt('会話名を入力（空欄またはキャンセルで自動命名）', '');
+  const title = (name || '').trim();
+  const conv = await api('/api/conversations', {
+    method: 'POST',
+    body: JSON.stringify(title ? { title } : {})
+  });
   await refreshConvList();
   await openConversation(conv.id);
   inputEl.focus();
@@ -1314,7 +1320,7 @@ async function send() {
   if (!text || busy || !current) return;
   if (apiWarnMissing()) return;
 
-  if (current.messages.length === 0) {
+  if (current.messages.length === 0 && (!current.title || current.title === '新しい会話')) {
     current.title = text.slice(0, 40) + (text.length > 40 ? '…' : '');
   }
   fun.infiniteCount = 0; // 手動送信で無限カウントリセット
