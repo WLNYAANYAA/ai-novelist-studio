@@ -2,6 +2,9 @@ const { app, BrowserWindow, ipcMain, globalShortcut } = require('electron');
 const path = require('path');
 const os = require('os');
 
+// Windowsのタスクバー/Alt+Tabで「Electron」ではなくアプリ名・アイコンを表示するためのID
+app.setAppUserModelId('com.ainoveliststudio.app');
+
 // APPDATAがネットワークパスを指す環境でもローカルに保存する
 app.setPath('userData', path.join(os.homedir(), 'AppData', 'Roaming', 'AI Novelist Studio'));
 // NOTE: GPUアクセラレーションは有効のまま。以前ネットワークドライブ上のexeで

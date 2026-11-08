@@ -1,5 +1,6 @@
 {
   "name": "ai-novelist-studio",
+  "productName": "AI Novelist Studio",
   "version": "1.0.0",
   "description": "AIのべりすと API を使った小説執筆・チャットツール",
   "main": "main.js",
@@ -7,7 +8,31 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "desktop": "electron .",
-    "icon": "node scripts/make-icon.js"
+    "icon": "node scripts/make-icon.js",
+    "dist": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.ainoveliststudio.app",
+    "productName": "AI Novelist Studio",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "server.js",
+      "public/**",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
   },
   "keywords": [],
   "author": "",
@@ -18,6 +43,7 @@
   },
   "devDependencies": {
     "electron": "^45.2.3",
+    "electron-builder": "^26.18.0",
     "sharp": "^0.35.5"
   }
 }
