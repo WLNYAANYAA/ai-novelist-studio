@@ -660,13 +660,16 @@ body.writing-mode .msg .content { font-size: 16.5px; line-height: 2.1; }
 /* ---------- Mobile app layout ---------- */
 #btnMenu { display: none; }
 @media (max-width: 760px) {
-  #btnMenu { display: inline-flex; padding: 6px 9px; flex-shrink: 0; }
+  /* モバイルのブラウザUI分を除いた実効高さ */
+  #app { height: 100vh; height: 100dvh; }
+
+  #btnMenu { display: inline-flex; padding: 9px 11px; flex-shrink: 0; }
   #btnSidebarToggle { display: none; }
 
   /* サイドバーをドロワー化 */
   #sidebar {
     position: fixed; top: 0; left: 0; bottom: 0; z-index: 95;
-    width: min(300px, 85vw);
+    width: min(320px, 88vw);
     transform: translateX(-105%);
     transition: transform 0.22s ease;
     box-shadow: none;
@@ -676,25 +679,69 @@ body.writing-mode .msg .content { font-size: 16.5px; line-height: 2.1; }
     content: ''; position: fixed; inset: 0; z-index: 94;
     background: rgba(15, 12, 35, 0.5);
   }
+  /* タッチ環境ではホバーが無いので操作アイコンを常時表示 */
+  .conv-item { padding: 11px 12px; font-size: 14px; }
+  .conv-item .del { display: inline-flex; opacity: 0.55; }
+  .conv-item .meta { font-size: 11.5px; }
+  .sidebar-header { padding: 20px 16px 12px; }
+  #convSearch { font-size: 16px; padding: 10px 10px 10px 32px; }
+  .sidebar-footer .btn-ghost { padding: 10px 12px; font-size: 13px; }
 
-  .msg { max-width: 94%; }
-  #topbar { padding: 10px 14px; gap: 8px; }
-  #convTitle { max-width: 40%; font-size: 14px; }
-  #composer { padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); }
-  #chat { padding: 18px 12px 14px; gap: 16px; }
-  #input { font-size: 16px; } /* iOSの自動ズーム防止 */
-  input[type="text"], input[type="search"], input[type="password"], input[type="number"], textarea, select {
-    font-size: 16px; /* モバイルでフォーカス時の自動ズームを防止 */
+  /* トップバー：タイトルを優先、操作系はコンパクトに */
+  #topbar { padding: 8px 10px; gap: 6px; }
+  #convTitle { flex: 1; min-width: 0; max-width: none; font-size: 14px; }
+  .topbar-actions { gap: 4px; flex-shrink: 0; }
+  #tokenBadge { font-size: 10px; padding: 3px 7px; }
+  .dropdown { flex-shrink: 0; }
+
+  /* タブバー：スリム化 */
+  #tabbar { padding: 4px 8px 0; }
+  .tab { max-width: 120px; font-size: 12px; padding: 8px 8px 9px; }
+
+  /* チャット：読みやすさ優先で余白を確保 */
+  #chat { padding: 14px 10px 12px; gap: 14px; }
+  .msg { max-width: 96%; padding: 12px 14px; font-size: 14.5px; line-height: 1.75; }
+  .msg.bot .content { font-size: 15.5px; }
+  .msg-actions button { font-size: 12px; padding: 7px 11px; }
+
+  /* クイックバー：横スクロール＋タップしやすいサイズ */
+  #quickbar { flex-wrap: nowrap; overflow-x: auto; gap: 6px; padding-bottom: 4px; }
+  .qb, .menu-item { font-size: 12.5px; padding: 9px 12px; min-height: 38px; }
+
+  /* 入力欄：親指で押しやすい大きさ */
+  #composer { padding: 8px 10px calc(10px + env(safe-area-inset-bottom)); gap: 6px; }
+  #inputRow { gap: 8px; }
+  #input { font-size: 16px; padding: 11px 13px; height: 54px; }
+  #btnSend, #btnStop { min-width: 78px; padding: 12px 14px; font-size: 13px; }
+
+  /* モーダル：フルスクリーンでアプリらしく（モバイルではブラーを切って軽量化） */
+  .modal { backdrop-filter: none; background: rgba(15, 12, 35, 0.6); }
+  .modal-content {
+    width: 100vw; max-width: 100vw;
+    height: 100vh; height: 100dvh; max-height: 100vh; max-height: 100dvh;
+    border-radius: 0; border: none;
   }
-  #quickbar { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
-  .qb, .menu-item { font-size: 12px; padding: 5px 9px; }
-  .modal-content { width: 96vw; max-height: 92vh; }
-  .modal-body { padding: 16px; }
-  #tabbar { padding: 4px 10px 0; }
-  .tab { max-width: 140px; font-size: 12px; padding: 5px 8px 6px; }
-  #tokenBadge { font-size: 10.5px; padding: 3px 8px; }
+  .modal-body { padding: 14px; }
+  .modal-header { padding: 14px 16px; }
+  .modal-footer { padding: 12px 16px; }
+
+  /* ドロップダウンはボトムシート化（画面下からせり上がる） */
+  .dropdown-menu {
+    position: fixed; left: 8px; right: 8px; bottom: 8px; top: auto;
+    width: auto; min-width: 0; max-width: none;
+    height: auto; max-height: 55vh;
+    border-radius: 14px;
+  }
+  .dropdown-menu.down { top: auto; }
+  #topMenu { left: 8px; right: 8px; }
+
+  /* iOSの自動ズーム防止 */
+  input[type="text"], input[type="search"], input[type="password"], input[type="number"], textarea, select {
+    font-size: 16px;
+  }
   #charCount { display: none; }
-  .msg-actions button { font-size: 11px; padding: 5px 9px; }
+  #paramsPanel { padding: 12px 14px; }
+  .fab { right: 16px; bottom: calc(130px + env(safe-area-inset-bottom)); width: 44px; height: 44px; }
 }
 
 /* ---------- Fun features ---------- */
