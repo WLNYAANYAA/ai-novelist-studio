@@ -660,6 +660,9 @@ body.writing-mode .msg .content { font-size: 16.5px; line-height: 2.1; }
 /* ---------- Mobile app layout ---------- */
 #btnMenu { display: none; }
 @media (max-width: 760px) {
+  /* スマホではページ全体を80%に縮小表示 */
+  body { zoom: 0.8; }
+
   /* モバイルのブラウザUI分を除いた実効高さ */
   #app { height: 100vh; height: 100dvh; }
 

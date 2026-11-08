@@ -77,7 +77,6 @@ const fun = {
   theme: localStorage.getItem('ui_theme') || 'auto',
   aiName: localStorage.getItem('fun_ainame') || '',
   ears: localStorage.getItem('fun_ears') === '1',
-  zoom: localStorage.getItem('ui_zoom') || '1',
   bgm: false,
   writingMode: localStorage.getItem('fun_writingmode') === '1'
 };
@@ -2835,13 +2834,6 @@ function bindUI() {
   $('qbInfinite').onclick = toggleInfinite;
   $('qbMood').value = fun.mood;
   $('qbMood').onchange = onMoodChange;
-  $('qbZoom').value = fun.zoom;
-  $('qbZoom').onchange = () => {
-    fun.zoom = $('qbZoom').value;
-    localStorage.setItem('ui_zoom', fun.zoom);
-    document.body.style.zoom = fun.zoom;
-  };
-  document.body.style.zoom = fun.zoom;
   $('qbMoodUp').onclick = moodUp;
   $('qbTheme').onclick = cycleTheme;
   $('btnPresetSave').onclick = savePreset;
