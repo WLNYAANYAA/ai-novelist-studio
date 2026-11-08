@@ -196,8 +196,10 @@ function renderConvList() {
   visibleConvs.forEach((c, idx) => {
     const div = document.createElement('div');
     div.className = 'conv-item' + (current && c.id === current.id ? ' active' : '') + (selectedConvs.has(c.id) ? ' selected' : '');
-    div.innerHTML = `<div class="title"></div><div class="meta"></div>`;
-    div.querySelector('.title').textContent = c.title;
+    div.innerHTML = `<div class="title" title="ダブルクリックで名前変更"></div><div class="meta"></div>`;
+    const titleEl = div.querySelector('.title');
+    titleEl.textContent = c.title;
+    titleEl.ondblclick = (e) => { e.stopPropagation(); startConvRename(div, c); };
     div.querySelector('.meta').textContent = `${c.messageCount} msgs · ${fmtDate(c.updated)}`;
     const del = document.createElement('span');
     del.className = 'del';
@@ -259,6 +261,42 @@ function renderConvList() {
   });
   updateSelUI();
   renderTabs();
+}
+
+// ---------- 会話リネーム ----------
+async function renameConversation(c, newTitle) {
+  newTitle = (newTitle || '').trim();
+  if (!newTitle || newTitle === c.title) { renderConvList(); return; }
+  await api('/api/conversations/' + c.id, { method: 'PUT', body: JSON.stringify({ title: newTitle }) });
+  c.title = newTitle;
+  if (current && current.id === c.id) {
+    current.title = newTitle;
+    convTitleEl.textContent = newTitle;
+    renderTabs();
+  }
+  await refreshConvList();
+}
+function startConvRename(div, c) {
+  const titleEl = div.querySelector('.title');
+  const input = document.createElement('input');
+  input.className = 'conv-rename';
+  input.value = c.title;
+  titleEl.textContent = '';
+  titleEl.appendChild(input);
+  input.focus(); input.select();
+  let done = false;
+  const finish = (save) => {
+    if (done) return; done = true;
+    const v = input.value;
+    if (save) renameConversation(c, v); else renderConvList();
+  };
+  input.onkeydown = (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') finish(true);
+    if (e.key === 'Escape') finish(false);
+  };
+  input.onclick = (e) => e.stopPropagation();
+  input.onblur = () => finish(true);
 }
 
 // ---------- Tabs ----------
@@ -2651,6 +2689,14 @@ function bindUI() {
   $('btnSidebarToggle').onclick = toggleSidebar;
   initScrollWatch();
   $('btnSettings').onclick = openSettings;
+  convTitleEl.title = 'ダブルクリックで会話名を変更';
+  convTitleEl.ondblclick = async () => {
+    if (!current) return;
+    const v = await appPrompt('会話名を入力', current.title);
+    if (v && v.trim() && v.trim() !== current.title) {
+      await renameConversation(current, v);
+    }
+  };
   $('btnCloseSettings').onclick = () => $('settingsModal').classList.add('hidden');
   $('settingsModal').addEventListener('click', (e) => {
     if (e.target === $('settingsModal')) $('settingsModal').classList.add('hidden');

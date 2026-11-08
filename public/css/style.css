@@ -173,6 +173,11 @@ button {
   font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   padding-right: 18px;
 }
+.conv-rename {
+  width: 100%; font: inherit; font-weight: 500; color: inherit;
+  background: rgba(255,255,255,0.08); border: 1px solid var(--accent, #6c5ce7);
+  border-radius: 6px; padding: 2px 6px; outline: none;
+}
 .conv-item .meta { font-size: 11px; color: #7a7792; margin-top: 3px; }
 .conv-item.active .meta { color: #b0adc9; }
 .conv-item .del {
