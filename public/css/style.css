@@ -289,17 +289,17 @@ details.set-section[open] > summary.set-title::before { transform: rotate(90deg)
 #chat {
   flex: 1; overflow-y: auto; padding: 28px 20px 20px;
   display: flex; flex-direction: column; gap: 20px;
+  scrollbar-gutter: stable;
 }
 .msg {
   max-width: 760px; width: fit-content;
   padding: 14px 18px; border-radius: var(--radius);
   line-height: 1.85; font-size: 14.5px;
   animation: msgIn 0.25s ease both;
-  /* 画面外メッセージのレイアウト・描画をスキップ（長い会話のスクロール高速化） */
-  content-visibility: auto;
 }
-.msg.bot { contain-intrinsic-size: auto 360px; }
-.msg.user { contain-intrinsic-size: auto 90px; }
+/* 画面外メッセージの描画スキップはuser側のみ（高さが安定していて誤差が小さい）。
+   botは本文量で高さが大きく変わるため有効にするとスクロールバーが跳ねる */
+.msg.user { content-visibility: auto; contain-intrinsic-size: auto 90px; }
 @keyframes msgIn {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
