@@ -947,6 +947,110 @@ async function saveSettings() {
   $('settingsSaved').textContent = '保存しました';
   setTimeout(() => $('settingsSaved').textContent = '', 2000);
   setTimeout(() => $('settingsModal').classList.add('hidden'), 600);
+  syncPresetState();
+}
+
+// ---------- プリセット（設定のスナップショットを名前付きで保存・即時切替） ----------
+const PRESET_KEY = 'ai_presets';
+function loadPresets() {
+  try { return JSON.parse(localStorage.getItem(PRESET_KEY)) || []; } catch { return []; }
+}
+function savePresets(list) { localStorage.setItem(PRESET_KEY, JSON.stringify(list)); }
+
+function snapshotConfig() {
+  return {
+    model: config.model,
+    baseUrl: config.baseUrl,
+    noAuth: config.noAuth === true,
+    params: JSON.parse(JSON.stringify(config.params || {})),
+    systemPrompt: config.systemPrompt || '',
+    worldMemo: config.worldMemo || '',
+    stylePreset: config.stylePreset || '',
+    stream: config.stream !== false,
+    sendOnEnter: config.sendOnEnter === true
+  };
+}
+function canon(v) {
+  if (Array.isArray(v)) return v.map(canon);
+  if (v && typeof v === 'object') {
+    const r = {};
+    for (const k of Object.keys(v).sort()) r[k] = canon(v[k]);
+    return r;
+  }
+  return v;
+}
+function presetMatches(p) {
+  return JSON.stringify(canon(p.data)) === JSON.stringify(canon(snapshotConfig()));
+}
+function syncPresetState() {
+  const match = loadPresets().find(presetMatches);
+  const aid = match ? match.id : null;
+  if (aid) localStorage.setItem('preset_active', aid);
+  else localStorage.removeItem('preset_active');
+  updatePresetButton();
+}
+function updatePresetButton() {
+  const el = $('presetLabel');
+  if (!el) return;
+  const p = loadPresets().find(x => x.id === localStorage.getItem('preset_active'));
+  el.textContent = p ? p.name : 'なし';
+}
+function renderPresetMenu() {
+  const list = $('presetList');
+  if (!list) return;
+  const presets = loadPresets();
+  const activeId = localStorage.getItem('preset_active');
+  list.innerHTML = '';
+  if (!presets.length) {
+    list.innerHTML = '<div class="menu-item menu-static hint">プリセットなし</div>';
+    return;
+  }
+  for (const p of presets) {
+    const item = document.createElement('div');
+    item.className = 'menu-item preset-item' + (p.id === activeId ? ' active' : '');
+    item.innerHTML = `<span class="preset-name"></span><button class="preset-del" title="削除">×</button>`;
+    item.querySelector('.preset-name').textContent = p.name;
+    item.onclick = async () => {
+      await applyPreset(p);
+    };
+    item.querySelector('.preset-del').onclick = (e) => {
+      e.stopPropagation();
+      savePresets(loadPresets().filter(x => x.id !== p.id));
+      if (localStorage.getItem('preset_active') === p.id) localStorage.removeItem('preset_active');
+      renderPresetMenu();
+      updatePresetButton();
+    };
+    list.appendChild(item);
+  }
+}
+async function applyPreset(p) {
+  const d = p.data || {};
+  await api('/api/config', {
+    method: 'POST',
+    body: JSON.stringify({
+      model: d.model, baseUrl: d.baseUrl, noAuth: d.noAuth === true,
+      params: d.params || {}, systemPrompt: d.systemPrompt || '',
+      worldMemo: d.worldMemo || '', stylePreset: d.stylePreset || '',
+      stream: d.stream !== false, sendOnEnter: d.sendOnEnter === true
+    })
+  });
+  config = await api('/api/config');
+  localStorage.setItem('preset_active', p.id);
+  renderPresetMenu();
+  updatePresetButton();
+  appAlert(`プリセット「${p.name}」を適用しました`);
+}
+async function savePreset() {
+  const name = await appPrompt('プリセット名を入力（例: 創作モード / 推敲モード）', '');
+  if (!name || !name.trim()) return;
+  const list = loadPresets();
+  const exist = list.findIndex(x => x.name === name.trim());
+  const entry = { id: exist >= 0 ? list[exist].id : Date.now().toString(36), name: name.trim(), data: snapshotConfig() };
+  if (exist >= 0) list[exist] = entry; else list.push(entry);
+  savePresets(list);
+  localStorage.setItem('preset_active', entry.id);
+  renderPresetMenu();
+  updatePresetButton();
 }
 
 // ---------- Search ----------
@@ -2664,6 +2768,9 @@ function bindUI() {
   $('qbMood').onchange = onMoodChange;
   $('qbMoodUp').onclick = moodUp;
   $('qbTheme').onclick = cycleTheme;
+  $('btnPresetSave').onclick = savePreset;
+  renderPresetMenu();
+  syncPresetState();
 
   // ドロップダウンメニュー（上部バー・クイックバー共通）
   document.querySelectorAll('.dropdown').forEach(d => {

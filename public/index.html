@@ -239,6 +239,14 @@
             </div>
           </div>
         </div>
+        <div class="dropdown">
+          <button class="qb" id="qbPresetMenu">プリセット: <span id="presetLabel">なし</span> <svg class="icon"><use href="#i-chevron-down"/></svg></button>
+          <div class="dropdown-menu hidden" id="presetMenu">
+            <div id="presetList"></div>
+            <div class="menu-sep"></div>
+            <button class="menu-item qb" id="btnPresetSave"><svg class="icon"><use href="#i-plus"/></svg> 現在の設定をプリセットに保存</button>
+          </div>
+        </div>
       </div>
       <div id="inputRow">
         <textarea id="input" placeholder="メッセージを入力（Ctrl+Enterで送信）"></textarea>
