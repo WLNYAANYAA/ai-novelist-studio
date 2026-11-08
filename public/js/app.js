@@ -907,6 +907,7 @@ function openSettings() {
   }
   $('sMultilingual').checked = config.params.multilingual === true;
   $('sCtxBudget').value = config.params.ctxBudget ?? 120000;
+  $('sHistoryLimit').value = config.params.historyLimit ?? 0;
   $('sAutoCards').checked = config.params.autoCards !== false;
   $('sAutoCompress').checked = config.params.autoCompress !== false;
   $('sRealTokens').checked = config.params.realTokens === true;
@@ -924,6 +925,7 @@ async function saveSettings() {
       effort: $('sEffort').value,
       multilingual: $('sMultilingual').checked,
       ctxBudget: parseInt($('sCtxBudget').value) || 120000,
+      historyLimit: parseInt($('sHistoryLimit').value) || 0,
       autoCards: $('sAutoCards').checked,
       autoCompress: $('sAutoCompress').checked,
       realTokens: $('sRealTokens').checked
@@ -1251,6 +1253,12 @@ function composeSystemPrompt() {
 function apiMessages() {
   return current.messages.filter(m => m.role === 'user' || m.role === 'assistant');
 }
+// AIが実際に読む会話履歴（メモリ設定: params.historyLimit 件まで。0=全て）
+function contextMessages() {
+  const msgs = apiMessages();
+  const n = parseInt(config.params.historyLimit) || 0;
+  return n > 0 ? msgs.slice(-n) : msgs;
+}
 
 function apiKeyMissing() { return !(config.hasApiKey || config.noAuth); }
 function apiWarnMissing() { if (apiKeyMissing()) { openSettings(); appAlert('APIキーを設定してください（ローカルLLMの場合は「APIキー不要」にチェック）'); return true; } return false; }
@@ -1287,7 +1295,7 @@ async function runCompletion() {
   const messages = [];
   const sys = composeSystemPrompt();
   if (sys) messages.push({ role: 'system', content: sys });
-  for (const m of apiMessages()) messages.push({ role: m.role, content: m.content });
+  for (const m of contextMessages()) messages.push({ role: m.role, content: m.content });
 
   const body = buildRequestBody(messages, config.stream !== false);
 
@@ -1452,7 +1460,7 @@ function updateTokenBadge() {
   const cost = t.input * PRICE_IN_PER_TOKEN + t.output * PRICE_OUT_PER_TOKEN;
   // コンテキスト推定（日本語は約1.5文字=1トークン）
   let chars = (composeSystemPrompt() || '').length;
-  for (const m of apiMessages()) chars += (m.content || '').length;
+  for (const m of contextMessages()) chars += (m.content || '').length;
   const ctx = Math.ceil(chars / 1.5);
   tokenBadgeEl.textContent = `Σ ${t.input.toLocaleString()}+${t.output.toLocaleString()} tok · 約¥${cost.toFixed(2)} · ctx ~${ctx.toLocaleString()}`;
   refreshRealCtx();
@@ -1985,7 +1993,7 @@ async function realTokenCount(text) {
 }
 async function refreshRealCtx() {
   if (!current || config?.params?.realTokens !== true) return;
-  const text = (composeSystemPrompt() || '') + '\n' + apiMessages().map(m => m.content || '').join('\n');
+  const text = (composeSystemPrompt() || '') + '\n' + contextMessages().map(m => m.content || '').join('\n');
   const key = text.length + '|' + text.slice(0, 100) + '|' + text.slice(-100);
   if (realCtxCache.key === key) { applyRealCtx(realCtxCache.val); return; }
   const n = await realTokenCount(text);
@@ -2007,7 +2015,7 @@ function fmtDate(ts) {
 function estContextTokens() {
   if (!current) return 0;
   let chars = (composeSystemPrompt() || '').length;
-  for (const m of apiMessages()) chars += (m.content || '').length;
+  for (const m of contextMessages()) chars += (m.content || '').length;
   return Math.ceil(chars / 1.5);
 }
 function contextBudget() { return Math.max(10000, parseInt(config.params.ctxBudget) || 120000); }
@@ -2194,7 +2202,7 @@ async function genVariants(n = 3) {
     const sys = composeSystemPrompt();
     const base = [];
     if (sys) base.push({ role: 'system', content: sys });
-    for (const m of apiMessages()) base.push({ role: m.role, content: m.content });
+    for (const m of contextMessages()) base.push({ role: m.role, content: m.content });
     const jobs = [];
     for (let i = 0; i < n; i++) {
       const msgs = base.concat([{ role: 'user', content: `【指示】これまでの流れに対して、案${i + 1}として別の展開・別の文体で続きを書いてください。他の案と明確に差別化してください。` }]);

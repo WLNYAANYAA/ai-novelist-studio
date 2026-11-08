@@ -333,6 +333,9 @@
           <label class="set-label">コンテキスト予算（トークン・超過で自動圧縮）
             <input type="number" id="sCtxBudget" min="10000" max="200000" step="10000" value="120000">
           </label>
+          <label class="set-label">メモリ（AIが読み込む直近の会話数・0=全て）
+            <input type="number" id="sHistoryLimit" min="0" max="2000" step="1" value="0">
+          </label>
           <label class="set-label" style="justify-content:flex-end"><input type="checkbox" id="sAutoCards" checked> 関連カードを自動選択して注入</label>
           <label class="set-label" style="justify-content:flex-end"><input type="checkbox" id="sAutoCompress" checked> 予算超過時に自動圧縮</label>
           <label class="set-label" style="justify-content:flex-end"><input type="checkbox" id="sRealTokens"> 実トークン計測（trin_tokenizer・初回DLあり）</label>
