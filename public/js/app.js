@@ -196,10 +196,8 @@ function renderConvList() {
   visibleConvs.forEach((c, idx) => {
     const div = document.createElement('div');
     div.className = 'conv-item' + (current && c.id === current.id ? ' active' : '') + (selectedConvs.has(c.id) ? ' selected' : '');
-    div.innerHTML = `<div class="title" title="ダブルクリックで名前変更"></div><div class="meta"></div>`;
-    const titleEl = div.querySelector('.title');
-    titleEl.textContent = c.title;
-    titleEl.ondblclick = (e) => { e.stopPropagation(); startConvRename(div, c); };
+    div.innerHTML = `<div class="title"></div><div class="meta"></div>`;
+    div.querySelector('.title').textContent = c.title;
     div.querySelector('.meta').textContent = `${c.messageCount} msgs · ${fmtDate(c.updated)}`;
     const del = document.createElement('span');
     del.className = 'del';
@@ -225,6 +223,15 @@ function renderConvList() {
       }
       await refreshConvList();
     };
+    const ren = document.createElement('span');
+    ren.className = 'del ren';
+    ren.innerHTML = icon('edit');
+    ren.title = '名前を変更';
+    ren.style.right = '46px';
+    ren.onclick = (e) => {
+      e.stopPropagation();
+      startConvRename(div, c);
+    };
     const dup = document.createElement('span');
     dup.className = 'del dup';
     dup.innerHTML = icon('branch');
@@ -235,6 +242,7 @@ function renderConvList() {
       const full = await api('/api/conversations/' + c.id);
       await duplicateConversation(full);
     };
+    div.appendChild(ren);
     div.appendChild(dup);
     div.appendChild(del);
     div.onclick = (e) => {

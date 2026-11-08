@@ -171,7 +171,7 @@ button {
 }
 .conv-item .title {
   font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  padding-right: 18px;
+  padding-right: 66px;
 }
 .conv-rename {
   width: 100%; font: inherit; font-weight: 500; color: inherit;
