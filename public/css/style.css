@@ -644,6 +644,10 @@ body.writing-mode .msg .content { font-size: 16.5px; line-height: 2.1; }
   padding: 16px 24px; border-top: 1px solid var(--border);
   display: flex; align-items: center; gap: 14px;
 }
+.modal-footer .btn-primary, .modal-footer .btn-ghost {
+  height: 36px; padding: 0 18px; font-size: 13px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
 
 /* ---------- Cards & templates ---------- */
 .card-item {
