@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6c5ce7"/>
+      <stop offset="1" stop-color="#4a3fb5"/>
+    </linearGradient>
+    <linearGradient id="pen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d9d4ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- 羽ペン -->
+  <g transform="rotate(-35 256 256)">
+    <path d="M256 96 L352 300 L256 420 L160 300 Z" fill="url(#pen)"/>
+    <path d="M256 96 L256 420" stroke="#b9b0f0" stroke-width="10"/>
+    <path d="M256 96 L352 300 L256 262 Z" fill="#c9c2f5" opacity="0.7"/>
+    <path d="M256 96 L160 300 L256 262 Z" fill="#e8e5ff" opacity="0.7"/>
+    <circle cx="256" cy="330" r="26" fill="#ffd166"/>
+    <rect x="238" y="420" width="36" height="46" rx="10" fill="#8e7cf0"/>
+  </g>
+  <!-- 吹き出し（物語） -->
+  <g transform="translate(330 120)">
+    <rect x="0" y="0" width="120" height="90" rx="22" fill="#ffffff" opacity="0.95"/>
+    <path d="M30 90 L44 122 L66 90 Z" fill="#ffffff" opacity="0.95"/>
+    <rect x="18" y="18" width="84" height="12" rx="6" fill="#6c5ce7" opacity="0.8"/>
+    <rect x="18" y="42" width="60" height="12" rx="6" fill="#b9b0f0"/>
+  </g>
+</svg>

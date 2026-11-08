@@ -1,0 +1,22 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# 使い方: GitHubにこのフォルダをpush → Renderで「New > Blueprint」→ このファイルを選択
+services:
+  - type: web
+    name: ai-novelist-studio
+    runtime: docker
+    plan: free
+    envVars:
+      - key: ACCESS_TOKEN
+        sync: false   # デプロイ時に値を入力（公開URLの悪用防止に必須）
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: "3737"
+      # データ永続化は Render無料枠ではディスクを作れません。
+      # 有料プランにする場合は下記のコメントを外してください:
+      # - key: DATA_DIR
+      #   value: /data
+    # disk:
+    #   name: app-data
+    #   mountPath: /data
+    #   sizeGB: 1
