@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>AI Novelist Studio</title>
-<link rel="stylesheet" href="/css/style.css?v=14">
+<link rel="stylesheet" href="/css/style.css?v=15">
 </head>
 <body>
 <script>document.documentElement.dataset.sidebar = localStorage.getItem('sidebar_collapsed') === '1' ? 'collapsed' : '';</script>
@@ -184,12 +184,16 @@
       </div>
     </div>
 
-    <div id="chat"></div>
+    <div id="workspace">
+      <div id="chatCol">
+        <div id="chat"></div>
 
-    <div id="composer">
-      <div id="quickbar">
-        <div class="dropdown">
-          <button class="qb" id="qbInstructMenu">指示 <svg class="icon"><use href="#i-chevron-down"/></svg></button>
+        <div id="composer">
+          <div id="quickbar">
+            <button class="qb" id="qbManuscript" title="原稿ペインの開閉">原稿</button>
+            <button class="qb" id="btnOptimizePrompt" title="入力中の指示文をAIに最適化させる"><svg class="icon"><use href="#i-sparkle"/></svg> 最適化</button>
+            <div class="dropdown">
+              <button class="qb" id="qbInstructMenu">指示 <svg class="icon"><use href="#i-chevron-down"/></svg></button>
           <div class="dropdown-menu hidden" id="instructMenu">
             <button class="menu-item qb" data-instruct="続きを書いてください">続き</button>
             <button class="menu-item qb" data-instruct="この応答を推敲して、より良い文章にしてください">推敲</button>
@@ -255,6 +259,30 @@
           <button id="btnStop" class="btn-danger hidden"><svg class="icon"><use href="#i-stop"/></svg> 停止</button>
         </div>
       </div>
+        </div>
+      </div>
+
+      <!-- 原稿ペイン -->
+      <aside id="manuscriptPane" class="hidden">
+        <div class="ms-header">
+          <span class="ms-title">原稿</span>
+          <div class="ms-actions">
+            <button id="btnMsExport" class="btn-ghost btn-sm">出力</button>
+            <button id="btnMsClose" class="btn-ghost btn-sm">閉じる</button>
+          </div>
+        </div>
+        <div class="ms-toolbar">
+          <button id="btnMsAddChapter" class="btn-ghost btn-sm">＋章</button>
+          <button id="btnMsAddScene" class="btn-ghost btn-sm">＋シーン</button>
+          <button id="btnMsDel" class="btn-ghost btn-sm">削除</button>
+        </div>
+        <div id="msTree"></div>
+        <div class="ms-editor">
+          <input id="msSceneTitle" placeholder="シーン名">
+          <textarea id="msEditor" placeholder="ここに本文を書きます。AI応答の「原稿」ボタンで追記できます"></textarea>
+          <div class="hint" id="msStatus"></div>
+        </div>
+      </aside>
     </div>
     <button id="btnScrollBottom" class="fab hidden" title="最新へ"><svg class="icon"><use href="#i-arrow-down"/></svg></button>
     <button id="btnExitWriting" class="fab hidden" title="執筆モード解除">✕</button>
@@ -541,8 +569,8 @@
   </div>
 </div>
 
-<script src="/js/marked.min.js?v=14"></script>
-<script src="/js/purify.min.js?v=14"></script>
-<script src="/js/app.js?v=14"></script>
+<script src="/js/marked.min.js?v=15"></script>
+<script src="/js/purify.min.js?v=15"></script>
+<script src="/js/app.js?v=15"></script>
 </body>
 </html>

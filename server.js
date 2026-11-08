@@ -15,6 +15,7 @@ const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const CONV_FILE = path.join(DATA_DIR, 'conversations.json');
 const CARDS_FILE = path.join(DATA_DIR, 'cards.json');
 const TEMPLATES_FILE = path.join(DATA_DIR, 'templates.json');
+const MANU_FILE = path.join(DATA_DIR, 'manuscript.json');
 // スナップショットは会話ごとに別ファイル（conversations.json の肥大化防止）
 const SNAP_DIR = path.join(DATA_DIR, 'snapshots');
 const snapFile = (id) => path.join(SNAP_DIR, id + '.json');
@@ -73,6 +74,7 @@ let config = {
 let conversations = readJSON(CONV_FILE, {});
 let cards = readJSON(CARDS_FILE, {});
 let templates = readJSON(TEMPLATES_FILE, {});
+let manuscript = readJSON(MANU_FILE, { title: '無題', chapters: [] });
 
 function getLanUrl() {
   if (config.lanAccess !== true) return null;
@@ -307,6 +309,27 @@ function cardCRUD(file, store) {
 }
 cardCRUD('cards', cards);
 cardCRUD('templates', templates);
+
+// ---------- Manuscript（原稿） ----------
+app.get('/api/manuscript', (req, res) => res.json(manuscript));
+app.put('/api/manuscript', (req, res) => {
+  const b = req.body || {};
+  manuscript = {
+    title: String(b.title || '無題').slice(0, 200),
+    chapters: (Array.isArray(b.chapters) ? b.chapters : []).slice(0, 200).map(ch => ({
+      id: String(ch.id || ''),
+      title: String(ch.title || '無題').slice(0, 200),
+      scenes: (Array.isArray(ch.scenes) ? ch.scenes : []).slice(0, 500).map(sc => ({
+        id: String(sc.id || ''),
+        title: String(sc.title || '無題').slice(0, 200),
+        content: String(sc.content || '').slice(0, 200000)
+      }))
+    })),
+    updated: Date.now()
+  };
+  writeJSON(MANU_FILE, manuscript);
+  res.json({ ok: true });
+});
 
 // ---------- Chat proxy (SSE対応) ----------
 app.post('/api/chat', async (req, res) => {
