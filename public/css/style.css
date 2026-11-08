@@ -373,7 +373,8 @@ details.set-section[open] > summary.set-title::before { transform: rotate(90deg)
   background: var(--bg-input); color: var(--text); font-weight: 500;
 }
 .msg-actions button:hover {
-  color: var(--accent); border-color: var(--accent); background: var(--accent-soft);
+  color: var(--accent); border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-panel));
 }
 
 /* ---------- Tab bar ---------- */
