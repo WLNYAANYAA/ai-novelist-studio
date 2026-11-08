@@ -16,6 +16,7 @@ const CONV_FILE = path.join(DATA_DIR, 'conversations.json');
 const CARDS_FILE = path.join(DATA_DIR, 'cards.json');
 const TEMPLATES_FILE = path.join(DATA_DIR, 'templates.json');
 const MANU_FILE = path.join(DATA_DIR, 'manuscript.json');
+const SRC_FILE = path.join(DATA_DIR, 'sources.json');
 // スナップショットは会話ごとに別ファイル（conversations.json の肥大化防止）
 const SNAP_DIR = path.join(DATA_DIR, 'snapshots');
 const snapFile = (id) => path.join(SNAP_DIR, id + '.json');
@@ -75,6 +76,7 @@ let conversations = readJSON(CONV_FILE, {});
 let cards = readJSON(CARDS_FILE, {});
 let templates = readJSON(TEMPLATES_FILE, {});
 let manuscript = readJSON(MANU_FILE, { title: '無題', chapters: [] });
+let sources = readJSON(SRC_FILE, {});
 
 function getLanUrl() {
   if (config.lanAccess !== true) return null;
@@ -328,6 +330,43 @@ app.put('/api/manuscript', (req, res) => {
     updated: Date.now()
   };
   writeJSON(MANU_FILE, manuscript);
+  res.json({ ok: true });
+});
+
+// ---------- Sources（参照資料・NotebookLM的なQ&A用） ----------
+app.get('/api/sources', (req, res) => res.json(Object.values(sources)));
+app.get('/api/sources/:id', (req, res) => {
+  const s = sources[req.params.id];
+  if (!s) return res.status(404).json({ error: 'not found' });
+  res.json(s);
+});
+app.post('/api/sources', (req, res) => {
+  const b = req.body || {};
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  sources[id] = {
+    id,
+    name: String(b.name || '無題').slice(0, 200),
+    content: String(b.content || '').slice(0, 500000),
+    created: Date.now(),
+    updated: Date.now()
+  };
+  writeJSON(SRC_FILE, sources);
+  res.json(sources[id]);
+});
+app.put('/api/sources/:id', (req, res) => {
+  const s = sources[req.params.id];
+  if (!s) return res.status(404).json({ error: 'not found' });
+  const b = req.body || {};
+  if (typeof b.name === 'string') s.name = b.name.slice(0, 200);
+  if (typeof b.content === 'string') s.content = b.content.slice(0, 500000);
+  s.updated = Date.now();
+  writeJSON(SRC_FILE, sources);
+  res.json(s);
+});
+app.delete('/api/sources/:id', (req, res) => {
+  if (!sources[req.params.id]) return res.status(404).json({ error: 'not found' });
+  delete sources[req.params.id];
+  writeJSON(SRC_FILE, sources);
   res.json({ ok: true });
 });
 

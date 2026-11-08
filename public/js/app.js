@@ -270,6 +270,7 @@ async function init() {
   allCards = await api('/api/cards');
   allTemplates = await api('/api/templates');
   loadManuscript();
+  refreshSources();
   await refreshConvList();
   // 前回開いていたタブを復元
   let restored = false;
@@ -857,6 +858,7 @@ function loadProfileToPanel() {
   $('pWorldMemo').value = p.worldMemo || '';
   $('pPlot').value = p.plot || '';
   $('pStylePreset').value = p.stylePreset || '';
+  $('pUseSources').checked = p.useSources === true;
 }
 function saveProfile() {
   if (!current) return;
@@ -864,7 +866,8 @@ function saveProfile() {
     systemPrompt: $('pSystemPrompt').value,
     worldMemo: $('pWorldMemo').value,
     plot: $('pPlot').value,
-    stylePreset: $('pStylePreset').value
+    stylePreset: $('pStylePreset').value,
+    useSources: $('pUseSources').checked
   };
   saveConversation().then(() => {
     $('profileSaved').textContent = '保存しました';
@@ -966,6 +969,76 @@ function saveCardPick() {
   saveConversation().then(() => {
     $('btnCloseCardPick').click();
   });
+}
+// ---------- Sources（参照資料） ----------
+let allSources = [];
+async function refreshSources() {
+  allSources = await api('/api/sources');
+}
+function openSourcesModal(editSource = null) {
+  refreshSources().then(renderSourceList);
+  $('sourcesModal').classList.remove('hidden');
+  if (editSource) fillSourceForm(editSource);
+  else resetSourceForm();
+}
+function renderSourceList() {
+  const el = $('sourceList');
+  el.innerHTML = '';
+  if (!allSources.length) {
+    el.innerHTML = '<p class="hint">ソースがありません。「新しいソース」で資料を登録してください。</p>';
+    return;
+  }
+  for (const s of allSources) {
+    const div = document.createElement('div');
+    div.className = 'card-item';
+    const hint = (s.content || '').slice(0, 60).replace(/\n/g, ' ');
+    div.innerHTML = `<strong></strong> <span class="hint"></span>`;
+    div.querySelector('strong').textContent = s.name;
+    div.querySelector('.hint').textContent = `${(s.content || '').length.toLocaleString()}字 — ${hint}`;
+    div.onclick = () => fillSourceForm(s);
+    el.appendChild(div);
+  }
+}
+function fillSourceForm(s) {
+  $('sourceEditForm').classList.remove('hidden');
+  $('srcId').value = s.id;
+  $('srcName').value = s.name;
+  $('srcContent').value = s.content || '';
+  $('btnDeleteSource').classList.remove('hidden');
+}
+function resetSourceForm() {
+  $('sourceEditForm').classList.add('hidden');
+  $('srcId').value = ''; $('srcName').value = ''; $('srcContent').value = '';
+  $('btnDeleteSource').classList.add('hidden');
+}
+async function saveSource() {
+  const id = $('srcId').value;
+  const body = { name: $('srcName').value.trim() || '無題', content: $('srcContent').value };
+  if (!body.content.trim()) { appAlert('内容を入力してください'); return; }
+  if (id) await api('/api/sources/' + id, { method: 'PUT', body: JSON.stringify(body) });
+  else await api('/api/sources', { method: 'POST', body: JSON.stringify(body) });
+  await refreshSources();
+  renderSourceList();
+  resetSourceForm();
+}
+async function deleteSource() {
+  const id = $('srcId').value;
+  if (!id || !(await appConfirm('このソースを削除しますか？'))) return;
+  await api('/api/sources/' + id, { method: 'DELETE' });
+  await refreshSources();
+  renderSourceList();
+  resetSourceForm();
+}
+function importSourceFile(file) {
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const name = file.name.replace(/\.[^.]+$/, '');
+    await api('/api/sources', { method: 'POST', body: JSON.stringify({ name, content: String(reader.result || '') }) });
+    await refreshSources();
+    renderSourceList();
+    resetSourceForm();
+  };
+  reader.readAsText(file, 'utf-8');
 }
 // ---------- Templates ----------
 async function refreshTemplates() {
@@ -1462,6 +1535,24 @@ function composeSystemPrompt() {
   if (lb) parts.push('【キーワード自動注入】\n' + lb);
   const tc = tagCardsText();
   if (tc) parts.push('【#タグで呼び出されたカード】\n' + tc);
+  // ソース参照（NotebookLM的Q&A）：会話プロファイルでONの時、資料を注入して出典付き回答を指示
+  if (p.useSources && allSources.length) {
+    const budget = 40000;
+    let used = 0;
+    const blocks = [];
+    for (const s of allSources) {
+      const head = `【ソース: ${s.name}】\n`;
+      const room = budget - used - head.length;
+      if (room <= 500) break;
+      const body = (s.content || '').slice(0, room);
+      used += head.length + body.length;
+      blocks.push(head + body + ((s.content || '').length > room ? '\n…（以下省略）' : ''));
+    }
+    if (blocks.length) {
+      parts.push('【参照ソース】\n' + blocks.join('\n\n') +
+        '\n\n※回答には根拠となったソース名を【出典: ソース名】の形式で明記してください。ソースに書かれていないことは推測である旨を明示してください。');
+    }
+  }
   const gp = config.params || {};
   const rules = [];
   if (gp.noMarkdown !== false) rules.push('Markdown記法（#・##・*・-・`・>・[]()など）は使用せず、プレーンテキストの小説文として出力してください。');
@@ -2897,6 +2988,20 @@ function bindUI() {
     scheduleMsSave();
     const cnt = document.querySelector('.ms-sc.sel .ms-count');
     if (cnt) cnt.textContent = `${sc.content.length}字`;
+  });
+  // ソース管理
+  $('btnSources').onclick = () => openSourcesModal();
+  $('btnCloseSources').onclick = () => $('sourcesModal').classList.add('hidden');
+  $('sourcesModal').addEventListener('click', (e) => { if (e.target === $('sourcesModal')) $('sourcesModal').classList.add('hidden'); });
+  $('btnNewSource').onclick = () => { $('sourceEditForm').classList.remove('hidden'); $('srcId').value=''; $('srcName').value=''; $('srcContent').value=''; $('btnDeleteSource').classList.add('hidden'); $('srcName').focus(); };
+  $('btnSaveSource').onclick = saveSource;
+  $('btnCancelSource').onclick = resetSourceForm;
+  $('btnDeleteSource').onclick = deleteSource;
+  $('btnImportSource').onclick = () => $('srcFileInput').click();
+  $('srcFileInput').addEventListener('change', (e) => {
+    const f = e.target.files[0];
+    if (f) importSourceFile(f);
+    e.target.value = '';
   });
   // プロンプト最適化
   $('btnOptimizePrompt').onclick = optimizePrompt;
