@@ -918,6 +918,7 @@ function buildRequestBody(messages, stream) {
     messages,
     stream
   };
+  if (stream) body.stream_options = { include_usage: true };
   for (const [key, apiName] of Object.entries(PARAM_MAP)) {
     let v = p[key];
     if (v === undefined || v === null || v === '') continue;
@@ -1473,6 +1474,12 @@ async function runCompletion() {
     pendingSummary = false;
     pendingStyle = false;
     setBusy(false);
+    if (!inTok && !outTok) {
+      // usageを返さないAPI向けに文字数から推定（日本語は約1.5文字=1トークン）
+      const inChars = messages.reduce((s, m) => s + (m.content || '').length, 0);
+      inTok = Math.ceil(inChars / 1.5);
+      outTok = Math.ceil(((fullText || '') + (reasoning || '')).length / 1.5);
+    }
     if (inTok || outTok) {
       conv.totalTokens = conv.totalTokens || { input: 0, output: 0 };
       conv.totalTokens.input += inTok;
