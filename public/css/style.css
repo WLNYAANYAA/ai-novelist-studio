@@ -660,18 +660,19 @@ body.writing-mode .msg .content { font-size: 16.5px; line-height: 2.1; }
 /* ---------- Mobile app layout ---------- */
 #btnMenu { display: none; }
 @media (max-width: 760px) {
-  /* スマホではページ全体を80%に縮小表示 */
-  body { zoom: 0.8; }
+  /* スマホではページ全体を80%に縮小表示。
+     zoomで全要素が0.8倍になるため、画面いっぱい系の要素は125%に拡大して帳尻を合わせる */
+  body { zoom: 0.8; height: 125vh; height: 125dvh; }
 
-  /* モバイルのブラウザUI分を除いた実効高さ */
-  #app { height: 100vh; height: 100dvh; }
+  /* 高さも0.8倍に縮むので125%にして実効100dvhに */
+  #app { height: 125vh; height: 125dvh; }
 
   #btnMenu { display: inline-flex; padding: 9px 11px; flex-shrink: 0; }
   #btnSidebarToggle { display: none; }
 
-  /* サイドバーをドロワー化 */
+  /* サイドバーをドロワー化（上下±12.5vhで縮小後も全高カバー） */
   #sidebar {
-    position: fixed; top: 0; left: 0; bottom: 0; z-index: 95;
+    position: fixed; top: -12.5vh; left: 0; bottom: -12.5vh; z-index: 95;
     width: min(320px, 88vw);
     transform: translateX(-105%);
     transition: transform 0.22s ease;
@@ -679,9 +680,12 @@ body.writing-mode .msg .content { font-size: 16.5px; line-height: 2.1; }
   }
   body.sidebar-open #sidebar { transform: none; box-shadow: var(--shadow-lg); }
   body.sidebar-open::after {
-    content: ''; position: fixed; inset: 0; z-index: 94;
+    content: ''; position: fixed; inset: -12.5%; z-index: 94;
     background: rgba(15, 12, 35, 0.5);
   }
+  /* モーダル・ボトムシートも縮小分を補正（詳細は下の各ルールで上書き） */
+  .modal { inset: -12.5%; }
+  #sakura-layer { inset: -12.5%; }
   /* タッチ環境ではホバーが無いので操作アイコンを常時表示 */
   .conv-item { padding: 11px 12px; font-size: 14px; }
   .conv-item .del { display: inline-flex; opacity: 0.55; }
@@ -720,23 +724,23 @@ body.writing-mode .msg .content { font-size: 16.5px; line-height: 2.1; }
   /* モーダル：フルスクリーンでアプリらしく（モバイルではブラーを切って軽量化） */
   .modal { backdrop-filter: none; background: rgba(15, 12, 35, 0.6); }
   .modal-content {
-    width: 100vw; max-width: 100vw;
-    height: 100vh; height: 100dvh; max-height: 100vh; max-height: 100dvh;
+    width: 125vw; max-width: 125vw;
+    height: 125vh; height: 125dvh; max-height: 125vh; max-height: 125dvh;
     border-radius: 0; border: none;
   }
   .modal-body { padding: 14px; }
   .modal-header { padding: 14px 16px; }
   .modal-footer { padding: 12px 16px; }
 
-  /* ドロップダウンはボトムシート化（画面下からせり上がる） */
+  /* ドロップダウンはボトムシート化（画面下からせり上がる。左右-12.5vwで縮小後も全幅カバー） */
   .dropdown-menu {
-    position: fixed; left: 8px; right: 8px; bottom: 8px; top: auto;
+    position: fixed; left: -12.5vw; right: -12.5vw; bottom: 8px; top: auto;
     width: auto; min-width: 0; max-width: none;
-    height: auto; max-height: 55vh;
+    height: auto; max-height: 68vh;
     border-radius: 14px;
   }
   .dropdown-menu.down { top: auto; }
-  #topMenu { left: 8px; right: 8px; }
+  #topMenu { left: -12.5vw; right: -12.5vw; }
 
   /* iOSの自動ズーム防止 */
   input[type="text"], input[type="search"], input[type="password"], input[type="number"], textarea, select {
