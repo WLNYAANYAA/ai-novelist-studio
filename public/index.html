@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>AI Novelist Studio</title>
-<link rel="stylesheet" href="/css/style.css?v=21">
+<link rel="stylesheet" href="/css/style.css?v=22">
 </head>
 <body>
 <script>document.documentElement.dataset.sidebar = localStorage.getItem('sidebar_collapsed') === '1' ? 'collapsed' : '';</script>
@@ -96,6 +96,7 @@
         <svg class="icon search-icon"><use href="#i-search"/></svg>
         <input type="search" id="convSearch" placeholder="会話を検索">
       </div>
+      <select id="convProjectFilter" class="proj-filter"><option value="__all">すべての会話</option></select>
     </div>
     <div id="bulkBar" class="hidden">
       <span id="bulkCount"></span>
@@ -177,6 +178,11 @@
             </select>
           </label>
           <span class="hint">※生成パラメータは「設定」で変更</span>
+        </div>
+        <div class="params-row">
+          <label style="flex:1">プロジェクト（この会話の所属）
+            <select id="pProject"><option value="">（なし）</option><option value="__new">＋新しいプロジェクト…</option></select>
+          </label>
         </div>
         <div class="params-row">
           <button id="btnSaveProfile" class="btn-primary btn-sm">この会話に保存</button>
@@ -607,8 +613,8 @@
   </div>
 </div>
 
-<script src="/js/marked.min.js?v=21"></script>
-<script src="/js/purify.min.js?v=21"></script>
-<script src="/js/app.js?v=21"></script>
+<script src="/js/marked.min.js?v=22"></script>
+<script src="/js/purify.min.js?v=22"></script>
+<script src="/js/app.js?v=22"></script>
 </body>
 </html>

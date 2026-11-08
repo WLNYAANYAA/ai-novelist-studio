@@ -168,6 +168,7 @@ function convSummary(c) {
     created: c.created,
     updated: c.updated,
     messageCount: (c.messages || []).length,
+    project: c.project || '',
     totalTokens: c.totalTokens || { input: 0, output: 0 }
   };
 }
@@ -186,6 +187,7 @@ app.post('/api/conversations', (req, res) => {
   conversations[id] = {
     id,
     title: typeof b.title === 'string' && b.title ? b.title.slice(0, 100) : '新しい会話',
+    project: typeof b.project === 'string' ? b.project.slice(0, 100) : '',
     created: now,
     updated: now,
     messages: Array.isArray(b.messages) ? b.messages : [],
@@ -215,6 +217,7 @@ app.put('/api/conversations/:id', (req, res) => {
   if (!c) return res.status(404).json({ error: 'not found' });
   const b = req.body || {};
   if (typeof b.title === 'string') c.title = b.title.slice(0, 100);
+  if (typeof b.project === 'string') c.project = b.project.slice(0, 100);
   if (Array.isArray(b.messages)) c.messages = b.messages;
   if (b.profile && typeof b.profile === 'object') c.profile = { ...c.profile, ...b.profile };
   if (Array.isArray(b.cardIds)) c.cardIds = b.cardIds;

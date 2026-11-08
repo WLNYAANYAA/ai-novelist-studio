@@ -295,8 +295,26 @@ async function init() {
 }
 
 // ---------- Conversations ----------
+// プロジェクト名の一覧（会話とソースの project を統合した名前空間）
+function projectNamesAll() {
+  const set = new Set();
+  for (const c of conversations) if (c.project) set.add(c.project);
+  for (const s of allSources) if (s.project) set.add(s.project);
+  return [...set].sort();
+}
+function renderConvProjectFilter() {
+  const sel = $('convProjectFilter');
+  if (!sel) return;
+  const cur = sel.value || '__all';
+  const names = projectNamesAll();
+  sel.innerHTML = '<option value="__all">すべての会話</option>' +
+    names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('') +
+    '<option value="__none">（プロジェクトなし）</option>';
+  sel.value = cur === '__all' || cur === '__none' || names.includes(cur) ? cur : '__all';
+}
 async function refreshConvList() {
   conversations = await api('/api/conversations');
+  renderConvProjectFilter();
   renderConvList();
 }
 
@@ -349,15 +367,21 @@ function showEmptyChat() {
 
 function renderConvList() {
   const q = searchBox.value.trim().toLowerCase();
+  const pf = ($('convProjectFilter') || {}).value || '__all';
   convListEl.innerHTML = '';
   searchResultsEl.classList.add('hidden');
-  visibleConvs = conversations.filter(c => !q || (c.title || '').toLowerCase().includes(q));
+  visibleConvs = conversations.filter(c => {
+    if (q && !(c.title || '').toLowerCase().includes(q)) return false;
+    if (pf === '__all') return true;
+    if (pf === '__none') return !c.project;
+    return c.project === pf;
+  });
   visibleConvs.forEach((c, idx) => {
     const div = document.createElement('div');
     div.className = 'conv-item' + (current && c.id === current.id ? ' active' : '') + (selectedConvs.has(c.id) ? ' selected' : '');
     div.innerHTML = `<div class="title"></div><div class="meta"></div>`;
     div.querySelector('.title').textContent = c.title;
-    div.querySelector('.meta').textContent = `${c.messageCount} msgs · ${fmtDate(c.updated)}`;
+    div.querySelector('.meta').textContent = `${c.project ? '📁' + c.project + ' · ' : ''}${c.messageCount} msgs · ${fmtDate(c.updated)}`;
     const del = document.createElement('span');
     del.className = 'del';
     del.innerHTML = icon('close');
@@ -564,9 +588,11 @@ async function newConversation() {
   // 名前入力を求める。キャンセル・空欄なら従来通り自動タイトルで作成
   const name = await appPrompt('会話名を入力（空欄またはキャンセルで自動命名）', '');
   const title = (name || '').trim();
+  const pf = ($('convProjectFilter') || {}).value || '__all';
+  const project = (pf !== '__all' && pf !== '__none') ? pf : '';
   const conv = await api('/api/conversations', {
     method: 'POST',
-    body: JSON.stringify(title ? { title } : {})
+    body: JSON.stringify({ ...(title ? { title } : {}), project })
   });
   await refreshConvList();
   await openConversation(conv.id);
@@ -584,7 +610,8 @@ async function saveConversation(conv) {
       profile: conv.profile,
       cardIds: conv.cardIds,
       snapshots: conv.snapshots,
-      totalTokens: conv.totalTokens
+      totalTokens: conv.totalTokens,
+      project: conv.project
     })
   });
   await refreshConvList();
@@ -866,9 +893,25 @@ function loadProfileToPanel() {
   const want = p.sourceProject || (p.useSources ? '__all' : '');
   if (want && want !== '__all' && !names.includes(want)) psel.add(new Option(want, want));
   psel.value = want;
+  // プロジェクト所属選択（会話の project フィールド）
+  const pproj = $('pProject');
+  const pnames = projectNamesAll();
+  const curProj = current?.project || '';
+  pproj.innerHTML = '<option value="">（なし）</option>' +
+    pnames.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('') +
+    '<option value="__new">＋新しいプロジェクト…</option>';
+  if (curProj && !pnames.includes(curProj)) pproj.add(new Option(curProj, curProj));
+  pproj.value = curProj;
 }
-function saveProfile() {
+async function saveProfile() {
   if (!current) return;
+  let proj = $('pProject').value;
+  if (proj === '__new') {
+    const n = await appPrompt('プロジェクト名を入力', '');
+    proj = (n || '').trim();
+    if (!proj) { $('pProject').value = current.project || ''; return; }
+  }
+  current.project = proj;
   current.profile = {
     systemPrompt: $('pSystemPrompt').value,
     worldMemo: $('pWorldMemo').value,
@@ -981,6 +1024,7 @@ function saveCardPick() {
 let allSources = [];
 async function refreshSources() {
   allSources = await api('/api/sources');
+  renderConvProjectFilter();
 }
 function sourceProjectNames() {
   return [...new Set(allSources.map(s => s.project || '').filter(Boolean))].sort();
@@ -2087,6 +2131,7 @@ async function duplicateConversation(c) {
     method: 'POST',
     body: JSON.stringify({
       title: c.title + '（コピー）',
+      project: c.project || '',
       messages: c.messages,
       profile: c.profile,
       cardIds: c.cardIds,
@@ -3168,6 +3213,7 @@ function bindUI() {
   $('btnSend').onclick = send;
   $('btnStop').onclick = () => abortCtrl && abortCtrl.abort();
   searchBox.addEventListener('input', onSearchInput);
+  $('convProjectFilter').addEventListener('change', renderConvList);
   inputEl.addEventListener('keydown', (e) => {
     if (tagSugKey(e)) return;
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(); }
