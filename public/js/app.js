@@ -990,6 +990,7 @@ function fillSourceProjectSelect(sel, current) {
   sel.innerHTML = '<option value="">（プロジェクトなし）</option>' +
     names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('') +
     '<option value="__new">＋新しいプロジェクト…</option>';
+  if (current && current !== '__new' && !names.includes(current)) sel.add(new Option(current, current));
   sel.value = current || '';
 }
 async function ensureProjectName(sel) {
@@ -3044,7 +3045,16 @@ function bindUI() {
   $('btnSources').onclick = () => openSourcesModal();
   $('btnCloseSources').onclick = () => $('sourcesModal').classList.add('hidden');
   $('sourcesModal').addEventListener('click', (e) => { if (e.target === $('sourcesModal')) $('sourcesModal').classList.add('hidden'); });
-  $('btnNewSource').onclick = () => { $('sourceEditForm').classList.remove('hidden'); $('srcId').value=''; $('srcName').value=''; $('srcContent').value=''; $('btnDeleteSource').classList.add('hidden'); $('srcName').focus(); };
+  $('btnNewSource').onclick = () => { $('sourceEditForm').classList.remove('hidden'); $('srcId').value=''; $('srcName').value=''; $('srcContent').value=''; fillSourceProjectSelect($('srcProject'), ''); $('btnDeleteSource').classList.add('hidden'); $('srcName').focus(); };
+  $('btnNewProject').onclick = async () => {
+    const name = await appPrompt('プロジェクト名を入力（例: 作品A / 資料集 / 論文メモ）', '');
+    if (!name || !name.trim()) return;
+    $('sourceEditForm').classList.remove('hidden');
+    $('srcId').value=''; $('srcName').value=''; $('srcContent').value='';
+    fillSourceProjectSelect($('srcProject'), name.trim());
+    $('btnDeleteSource').classList.add('hidden');
+    $('srcName').focus();
+  };
   $('btnSaveSource').onclick = saveSource;
   $('btnCancelSource').onclick = resetSourceForm;
   $('btnDeleteSource').onclick = deleteSource;

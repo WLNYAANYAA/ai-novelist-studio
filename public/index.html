@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>AI Novelist Studio</title>
-<link rel="stylesheet" href="/css/style.css?v=20">
+<link rel="stylesheet" href="/css/style.css?v=21">
 </head>
 <body>
 <script>document.documentElement.dataset.sidebar = localStorage.getItem('sidebar_collapsed') === '1' ? 'collapsed' : '';</script>
@@ -495,7 +495,7 @@
       <button class="modal-close" id="btnCloseSources"><svg class="icon"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body">
-      <p class="hint">資料（小説の設定メモ・参考文献・既存原稿など）をプロジェクトごとに登録。「この会話の設定」で参照プロジェクトを選ぶと、AIが資料を根拠に【出典: ソース名】付きで回答します。</p>
+      <p class="hint">資料をプロジェクトごとに登録します。手順：①「＋プロジェクト」で名前を付ける → ②ソースを貼り付けて保存 → ③「この会話の設定」で参照プロジェクトを選ぶ。AIが資料を根拠に【出典: ソース名】付きで回答します。</p>
       <div class="params-row" style="margin-bottom:10px">
         <select id="srcProjectFilter" style="flex:1"></select>
       </div>
@@ -512,6 +512,7 @@
         </div>
       </div>
       <div class="params-row">
+        <button id="btnNewProject" class="btn-ghost btn-sm">＋プロジェクト</button>
         <button id="btnNewSource" class="btn-ghost btn-sm"><svg class="icon"><use href="#i-plus"/></svg> 新しいソース</button>
         <button id="btnImportSource" class="btn-ghost btn-sm">ファイルを読み込む（.txt/.md）</button>
         <input type="file" id="srcFileInput" accept=".txt,.md,.text" class="hidden">
@@ -606,8 +607,8 @@
   </div>
 </div>
 
-<script src="/js/marked.min.js?v=20"></script>
-<script src="/js/purify.min.js?v=20"></script>
-<script src="/js/app.js?v=20"></script>
+<script src="/js/marked.min.js?v=21"></script>
+<script src="/js/purify.min.js?v=21"></script>
+<script src="/js/app.js?v=21"></script>
 </body>
 </html>
