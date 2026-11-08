@@ -670,9 +670,9 @@ body.writing-mode .msg .content { font-size: 16.5px; line-height: 2.1; }
   #btnMenu { display: inline-flex; padding: 9px 11px; flex-shrink: 0; }
   #btnSidebarToggle { display: none; }
 
-  /* サイドバーをドロワー化（上下±12.5vhで縮小後も全高カバー） */
+  /* サイドバーをドロワー化（下を-25vh延長し縮小後も全高カバー） */
   #sidebar {
-    position: fixed; top: -12.5vh; left: 0; bottom: -12.5vh; z-index: 95;
+    position: fixed; top: 0; left: 0; bottom: -25vh; z-index: 95;
     width: min(320px, 88vw);
     transform: translateX(-105%);
     transition: transform 0.22s ease;
@@ -680,12 +680,12 @@ body.writing-mode .msg .content { font-size: 16.5px; line-height: 2.1; }
   }
   body.sidebar-open #sidebar { transform: none; box-shadow: var(--shadow-lg); }
   body.sidebar-open::after {
-    content: ''; position: fixed; inset: -12.5%; z-index: 94;
+    content: ''; position: fixed; inset: 0 -25% -25% 0; z-index: 94;
     background: rgba(15, 12, 35, 0.5);
   }
-  /* モーダル・ボトムシートも縮小分を補正（詳細は下の各ルールで上書き） */
-  .modal { inset: -12.5%; }
-  #sakura-layer { inset: -12.5%; }
+  /* モーダル等も右下を25%延長して縮小後に全画面をカバー */
+  .modal { inset: 0 -25% -25% 0; }
+  #sakura-layer { inset: 0 -25% -25% 0; }
   /* タッチ環境ではホバーが無いので操作アイコンを常時表示 */
   .conv-item { padding: 11px 12px; font-size: 14px; }
   .conv-item .del { display: inline-flex; opacity: 0.55; }
@@ -732,15 +732,15 @@ body.writing-mode .msg .content { font-size: 16.5px; line-height: 2.1; }
   .modal-header { padding: 14px 16px; }
   .modal-footer { padding: 12px 16px; }
 
-  /* ドロップダウンはボトムシート化（画面下からせり上がる。左右-12.5vwで縮小後も全幅カバー） */
+  /* ドロップダウンはボトムシート化（右を-25vw延長し縮小後も全幅カバー） */
   .dropdown-menu {
-    position: fixed; left: -12.5vw; right: -12.5vw; bottom: 8px; top: auto;
+    position: fixed; left: 0; right: -25vw; bottom: 8px; top: auto;
     width: auto; min-width: 0; max-width: none;
     height: auto; max-height: 68vh;
     border-radius: 14px;
   }
   .dropdown-menu.down { top: auto; }
-  #topMenu { left: -12.5vw; right: -12.5vw; }
+  #topMenu { left: 0; right: -25vw; }
 
   /* iOSの自動ズーム防止 */
   input[type="text"], input[type="search"], input[type="password"], input[type="number"], textarea, select {
