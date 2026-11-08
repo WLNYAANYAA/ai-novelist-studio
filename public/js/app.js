@@ -964,6 +964,9 @@ function openSettings() {
   $('sAutoCards').checked = config.params.autoCards !== false;
   $('sAutoCompress').checked = config.params.autoCompress !== false;
   $('sRealTokens').checked = config.params.realTokens === true;
+  $('sNoMarkdown').checked = config.params.noMarkdown !== false;
+  $('sNoEmoji').checked = config.params.noEmoji !== false;
+  $('sJpReasoning').checked = config.params.jpReasoning !== false;
   updateModelHint();
   refreshTemplates();
   $('settingsModal').classList.remove('hidden');
@@ -981,7 +984,10 @@ async function saveSettings() {
       historyLimit: parseInt($('sHistoryLimit').value) || 0,
       autoCards: $('sAutoCards').checked,
       autoCompress: $('sAutoCompress').checked,
-      realTokens: $('sRealTokens').checked
+      realTokens: $('sRealTokens').checked,
+      noMarkdown: $('sNoMarkdown').checked,
+      noEmoji: $('sNoEmoji').checked,
+      jpReasoning: $('sJpReasoning').checked
     },
     stream: $('sStream').checked,
     sendOnEnter: $('sSendOnEnter').checked,
@@ -1297,6 +1303,12 @@ function composeSystemPrompt() {
   if (lb) parts.push('【キーワード自動注入】\n' + lb);
   const tc = tagCardsText();
   if (tc) parts.push('【#タグで呼び出されたカード】\n' + tc);
+  const gp = config.params || {};
+  const rules = [];
+  if (gp.noMarkdown !== false) rules.push('Markdown記法（#・##・*・-・`・>・[]()など）は使用せず、プレーンテキストの小説文として出力してください。');
+  if (gp.noEmoji !== false) rules.push('絵文字・顔文字・特殊記号による装飾は使用しないでください。');
+  if (gp.jpReasoning !== false) rules.push('思考・推論の過程は必ず日本語で行ってください。');
+  if (rules.length) parts.push('【出力ルール】\n' + rules.join('\n'));
   if (fun.aiName) parts.push(`（あなたの名前は「${fun.aiName}」です。呼ばれたらその名前で応答してください）`);
   parts.push(`（あなたの現在の機嫌: ${fun.mood}。機嫌を反映した自然な口調で応答してください）`);
   return parts.join('\n\n');

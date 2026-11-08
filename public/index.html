@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>AI Novelist Studio</title>
-<link rel="stylesheet" href="/css/style.css?v=13">
+<link rel="stylesheet" href="/css/style.css?v=14">
 </head>
 <body>
 <script>document.documentElement.dataset.sidebar = localStorage.getItem('sidebar_collapsed') === '1' ? 'collapsed' : '';</script>
@@ -371,6 +371,16 @@
         </div>
       </section>
 
+      <section class="set-section">
+        <h3 class="set-title">出力ルール</h3>
+        <div class="set-grid">
+          <label class="set-label" style="justify-content:flex-end"><input type="checkbox" id="sNoMarkdown" checked> Markdown記法を使わない</label>
+          <label class="set-label" style="justify-content:flex-end"><input type="checkbox" id="sNoEmoji" checked> 絵文字・顔文字を使わない</label>
+          <label class="set-label" style="justify-content:flex-end"><input type="checkbox" id="sJpReasoning" checked> 推論・思考を日本語に固定</label>
+        </div>
+        <p class="hint">チェックしたルールはシステムプロンプトに自動付加されます。</p>
+      </section>
+
       <details id="advParams" class="set-section">
         <summary class="set-title" style="cursor:pointer;list-style:none">詳細パラメータ（上級者向け・AIのべりすとAPI全対応）</summary>
         <div class="params-grid" style="margin-top:12px">
@@ -531,8 +541,8 @@
   </div>
 </div>
 
-<script src="/js/marked.min.js?v=13"></script>
-<script src="/js/purify.min.js?v=13"></script>
-<script src="/js/app.js?v=13"></script>
+<script src="/js/marked.min.js?v=14"></script>
+<script src="/js/purify.min.js?v=14"></script>
+<script src="/js/app.js?v=14"></script>
 </body>
 </html>
