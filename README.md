@@ -29,9 +29,7 @@ Electronアプリとして使う場合は `npm start`（要 `npm run build` 済�
 
 各自が自分のインスタンスを立てる方式です。手順は [DEPLOY.md](DEPLOY.md) を参照してください。
 
-<!-- TODO: GitHubリポジトリを公開したら以下のボタンを有効化
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=USER/REPO)
--->
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=WLNYAANYAA/ai-novelist-studio)
 
 ## 設定
 
