@@ -946,7 +946,7 @@ function openCardPicker() {
   const el = $('cardPickList');
   el.innerHTML = '';
   if (!allCards.length) {
-    el.innerHTML = '<p class="hint">カードがありません。先にサイドバーの「設定カード」で作成してください。</p>';
+    el.innerHTML = '<p class="hint">カードがありません。先にサイドバーの「カード」で作成してください。</p>';
     return;
   }
   for (const c of allCards) {
@@ -2755,7 +2755,7 @@ async function restorePin() {
 const MACRO_COMMANDS = {
   newChat: '新しい会話',
   settings: '設定を開く',
-  cards: '設定カードを開く',
+  cards: 'カードを開く',
   cardPick: 'この会話で使うカード',
   compress: 'コンテキストを圧縮',
   outline: '目次を表示',
