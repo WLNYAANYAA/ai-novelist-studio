@@ -369,8 +369,8 @@ details.set-section[open] > summary.set-title::before { transform: rotate(90deg)
 }
 .msg-actions button {
   font-size: 11.5px; padding: 4px 10px;
-  border: 1px solid var(--border); border-radius: 20px;
-  background: transparent; color: var(--text-dim); font-weight: 500;
+  border: 1px solid var(--border-strong); border-radius: 20px;
+  background: var(--bg-input); color: var(--text); font-weight: 500;
 }
 .msg-actions button:hover {
   color: var(--accent); border-color: var(--accent); background: var(--accent-soft);
@@ -693,7 +693,7 @@ body.writing-mode .msg .content { font-size: 16.5px; line-height: 2.1; }
   }
   /* タッチ環境ではホバーが無いので操作アイコンを常時表示 */
   .conv-item { padding: 11px 12px; font-size: 14px; }
-  .conv-item .del { display: inline-flex; opacity: 0.55; }
+  .conv-item .del { display: inline-flex; opacity: 0.85; }
   .conv-item .meta { font-size: 11.5px; }
   .sidebar-header { padding: 20px 16px 12px; }
   #convSearch { font-size: 16px; padding: 10px 10px 10px 32px; }
