@@ -79,7 +79,7 @@ button {
   transition: all 0.15s ease;
 }
 .btn-primary {
-  background: var(--user-grad); color: #fff; border: none;
+  background: var(--user-grad); color: #fff; border: 1px solid transparent;
   padding: 9px 18px; border-radius: var(--radius-sm);
   font-size: 13px; font-weight: 600; letter-spacing: 0.02em;
   box-shadow: 0 2px 8px rgba(108, 92, 231, 0.35);
@@ -87,7 +87,7 @@ button {
 .btn-primary:hover { filter: brightness(1.08); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(108, 92, 231, 0.45); }
 .btn-primary:active { transform: translateY(0); }
 .btn-primary:disabled { background: #9a97a8; box-shadow: none; transform: none; cursor: not-allowed; }
-.btn-primary.btn-sm { padding: 5px 12px; font-size: 12px; }
+.btn-primary.btn-sm, .btn-ghost.btn-sm { padding: 5px 12px; font-size: 12px; }
 .btn-ghost {
   background: transparent; color: var(--text); border: 1px solid var(--border-strong);
   padding: 6px 12px; border-radius: var(--radius-sm); font-size: 12.5px; font-weight: 500;
