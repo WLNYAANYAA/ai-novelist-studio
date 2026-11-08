@@ -33,7 +33,14 @@ if errorlevel 1 (
 :run
 set "ELECTRON_RUN_AS_NODE="
 
-rem �l�b�g���[�N�h���C�u(UNC)��ł�Electron���s����Ȃ��߁A���s���̓u���E�U�ł��ē�
+rem パッケージ済みexeがあればそちらを優先（タスクバー等が正しいアプリ名・アイコンになる）
+if exist "dist\win-unpacked\AI Novelist Studio.exe" (
+  start "" "dist\win-unpacked\AI Novelist Studio.exe"
+  popd
+  exit /b 0
+)
+
+rem --- exeが無い場合は従来通りelectronで起動 ---
 npx electron .
 set "RC=%ERRORLEVEL%"
 popd
