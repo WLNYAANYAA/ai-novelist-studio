@@ -346,6 +346,7 @@ app.post('/api/sources', (req, res) => {
   sources[id] = {
     id,
     name: String(b.name || '無題').slice(0, 200),
+    project: String(b.project || '').slice(0, 100),
     content: String(b.content || '').slice(0, 500000),
     created: Date.now(),
     updated: Date.now()
@@ -358,6 +359,7 @@ app.put('/api/sources/:id', (req, res) => {
   if (!s) return res.status(404).json({ error: 'not found' });
   const b = req.body || {};
   if (typeof b.name === 'string') s.name = b.name.slice(0, 200);
+  if (typeof b.project === 'string') s.project = b.project.slice(0, 100);
   if (typeof b.content === 'string') s.content = b.content.slice(0, 500000);
   s.updated = Date.now();
   writeJSON(SRC_FILE, sources);
