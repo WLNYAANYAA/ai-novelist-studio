@@ -323,6 +323,15 @@ details.set-section[open] > summary.set-title::before { transform: rotate(90deg)
   white-space: pre-wrap;
 }
 .msg.bot.thinking { color: var(--text-dim); }
+/* AIが執筆中に文末へ表示するペン先カーソル */
+.ai-caret {
+  display: inline-flex; vertical-align: -0.18em; margin: 0 1px;
+  color: var(--accent); animation: aiCaret 1.1s ease-in-out infinite;
+}
+@keyframes aiCaret {
+  0%, 100% { opacity: 0.3; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-2px); }
+}
 .msg.bot .content { overflow-x: auto; }
 
 /* 小説本文は明朝体で読みやすく */

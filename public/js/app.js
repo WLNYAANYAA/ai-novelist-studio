@@ -487,7 +487,7 @@ function addBotMsg(loading = true) {
   const el = addMsg('bot', '');
   if (loading) {
     el.classList.add('thinking');
-    el.querySelector('.content').innerHTML = '<em>生成中…</em>';
+    el.querySelector('.content').innerHTML = '<span class="ai-caret">' + icon('aipen') + '</span><em>生成中…</em>';
   }
   return el;
 }
@@ -534,6 +534,10 @@ function renderBotContent(el, text, reasoning) {
     tag.className = 'neko-tag';
     tag.textContent = 'にゃんモード';
     el.querySelector('.content').appendChild(tag);
+  }
+  // 生成中は文末にAIカーソル（ペン先）を点滅表示
+  if (el.classList.contains('thinking')) {
+    content.insertAdjacentHTML('beforeend', '<span class="ai-caret">' + icon('aipen') + '</span>');
   }
 }
 
