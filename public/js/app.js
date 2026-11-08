@@ -1644,7 +1644,7 @@ function initSelectionPopup() {
       const rect = range.getBoundingClientRect();
       if (selPopup) selPopup.remove();
       selPopup = document.createElement('button');
-      selPopup.className = 'qb';
+      selPopup.className = 'qb sel-popup';
       selPopup.style.cssText = `position:fixed;z-index:200;left:${rect.left}px;top:${rect.top - 34}px;`;
       selPopup.textContent = 'この範囲を指示';
       selPopup.onclick = async () => {

@@ -453,6 +453,14 @@ details.set-section[open] > summary.set-title::before { transform: rotate(90deg)
 .qb:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
 .qb.active { color: #fff; background: var(--accent); border-color: var(--accent); }
 .qb-sep { width: 1px; height: 18px; background: var(--border-strong); margin: 0 4px; }
+/* テキスト選択時の「この範囲を指示」ポップアップ：背景を不透明にして視認性を確保 */
+.sel-popup {
+  background: var(--bg-panel); color: var(--text);
+  border-color: var(--accent); font-weight: 600;
+  padding: 8px 14px; border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+}
+.sel-popup:hover { background: var(--bg-panel); color: var(--accent); }
 
 /* ---------- Writing mode ---------- */
 body.writing-mode #sidebar,
