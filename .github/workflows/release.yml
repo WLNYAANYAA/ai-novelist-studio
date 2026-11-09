@@ -28,12 +28,32 @@ jobs:
         run: node node_modules/electron/install.js
 
       - name: Build Windows installer
+        id: build
         env:
           # CIからのElectron/NSISダウンロードを高速・安定化（npmmirror経由）
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
           ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npm run dist
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run dist 2>&1 | tee build-log.txt
+
+      # 失敗時：ログ末尾をIssueとして自動作成（公開リポジトリなのでAPIで読める）
+      - name: Report build failure
+        if: failure() && steps.build.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          {
+            echo "Release build failed on \`${{ github.ref_name }}\`"
+            echo ""
+            echo '```'
+            tail -n 80 build-log.txt
+            echo '```'
+          } > issue-body.md
+          gh issue create --title "Release build failed: ${{ github.ref_name }}" --body-file issue-body.md || true
 
       - name: Resolve release tag
         id: meta
