@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Windows installer
+        run: npm run dist
+
+      - name: Resolve release tag
+        id: meta
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $tag = "${{ github.ref_name }}"
+            $pre = "false"
+          } else {
+            $tag = "nightly-" + (Get-Date -Format "yyyyMMdd-HHmm")
+            $pre = "true"
+          }
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "prerelease=$pre" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: AI Novelist Studio ${{ steps.meta.outputs.tag }}
+          prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
+          files: |
+            dist/AI Novelist Studio Setup *.exe
+            dist/win-unpacked/AI Novelist Studio.exe
