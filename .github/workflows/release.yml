@@ -6,6 +6,10 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+  issues: write
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -53,7 +57,15 @@ jobs:
             tail -n 80 build-log.txt
             echo '```'
           } > issue-body.md
-          gh issue create --title "Release build failed: ${{ github.ref_name }}" --body-file issue-body.md || true
+          gh issue create --title "Release build failed: ${{ github.ref_name }}" --body-file issue-body.md
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build-log.txt
+          retention-days: 7
 
       - name: Resolve release tag
         id: meta
