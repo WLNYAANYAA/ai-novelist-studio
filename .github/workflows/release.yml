@@ -21,6 +21,11 @@ jobs:
         run: npm ci
 
       - name: Build Windows installer
+        env:
+          # CIからのElectron/NSISダウンロードを高速・安定化（npmmirror経由）
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+          ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npm run dist
 
       - name: Resolve release tag
