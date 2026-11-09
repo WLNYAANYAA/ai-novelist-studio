@@ -20,6 +20,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # npm v11+ はパッケージのインストールスクリプトをブロックするため、
+      # Electron本体のバイナリがダウンロードされない。手動で取得する。
+      - name: Download Electron binary
+        env:
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+        run: node node_modules/electron/install.js
+
       - name: Build Windows installer
         env:
           # CIからのElectron/NSISダウンロードを高速・安定化（npmmirror経由）
