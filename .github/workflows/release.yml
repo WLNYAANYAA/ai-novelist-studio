@@ -41,7 +41,8 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          npm run dist 2>&1 | tee build-log.txt
+          # --publish never: タグ検出によるelectron-builder独自のGitHub公開を無効化（公開はaction-gh-releaseが担当）
+          npx electron-builder --win --publish never 2>&1 | tee build-log.txt
 
       # 失敗時：ログ末尾をIssueとして自動作成（公開リポジトリなのでAPIで読める）
       - name: Report build failure
