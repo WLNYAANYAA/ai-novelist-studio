@@ -38,6 +38,9 @@
   "author": "",
   "license": "MIT",
   "type": "commonjs",
+  "engines": {
+    "node": ">=22.13"
+  },
   "dependencies": {
     "express": "^5.3.0"
   },

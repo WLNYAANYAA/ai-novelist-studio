@@ -2,57 +2,135 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { DatabaseSync } = require('node:sqlite');
 
 const app = express();
 const PORT = process.env.PORT || 3737;
 const DEFAULT_BASE_URL = 'https://api.tringpt.com/v1';
-// データは各ユーザーのローカルに保存（ネットワーク共有上のdata/は使わない）
+// データは各ユーザーのローカルに保存（SQLite: app.db）
 // クラウド実行時は DATA_DIR 環境変数で永続ボリュームを指定する
 const DATA_DIR = process.env.DATA_DIR || (process.env.APPDATA
   ? path.join(process.env.APPDATA, 'AI Novelist Studio', 'data')
   : path.join(os.homedir(), '.ai-novelist-studio', 'data'));
-const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
-const CONV_FILE = path.join(DATA_DIR, 'conversations.json');
-const CARDS_FILE = path.join(DATA_DIR, 'cards.json');
-const TEMPLATES_FILE = path.join(DATA_DIR, 'templates.json');
-const MANU_FILE = path.join(DATA_DIR, 'manuscript.json');
-const SRC_FILE = path.join(DATA_DIR, 'sources.json');
-// スナップショットは会話ごとに別ファイル（conversations.json の肥大化防止）
-const SNAP_DIR = path.join(DATA_DIR, 'snapshots');
-const snapFile = (id) => path.join(SNAP_DIR, id + '.json');
+const DB_FILE = path.join(DATA_DIR, 'app.db');
+// レガシーJSON（初回起動時にSQLiteへ自動移行する。移行後も残す）
+const LEGACY_FILES = {
+  config: path.join(DATA_DIR, 'config.json'),
+  conv: path.join(DATA_DIR, 'conversations.json'),
+  card: path.join(DATA_DIR, 'cards.json'),
+  template: path.join(DATA_DIR, 'templates.json'),
+  manuscript: path.join(DATA_DIR, 'manuscript.json'),
+  source: path.join(DATA_DIR, 'sources.json')
+};
+const LEGACY_SNAP_DIR = path.join(DATA_DIR, 'snapshots');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-if (!fs.existsSync(SNAP_DIR)) fs.mkdirSync(SNAP_DIR, { recursive: true });
 
-function readJSON(file, fallback) {
-  try { return JSON.parse(fs.readFileSync(file, 'utf8')); }
-  catch { return fallback; }
+// ---------- SQLite ----------
+const db = new DatabaseSync(DB_FILE);
+db.exec(`CREATE TABLE IF NOT EXISTS docs (
+  kind TEXT NOT NULL,
+  id TEXT NOT NULL,
+  data TEXT NOT NULL,
+  updated INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (kind, id)
+)`);
+
+const stmtAll = db.prepare('SELECT id, data FROM docs WHERE kind = ?');
+const stmtOne = db.prepare('SELECT data FROM docs WHERE kind = ? AND id = ?');
+const stmtUpsert = db.prepare(
+  'INSERT INTO docs (kind, id, data, updated) VALUES (?, ?, ?, ?) ' +
+  'ON CONFLICT (kind, id) DO UPDATE SET data = excluded.data, updated = excluded.updated'
+);
+const stmtDelete = db.prepare('DELETE FROM docs WHERE kind = ? AND id = ?');
+
+function loadStore(kind) {
+  const out = {};
+  for (const row of stmtAll.all(kind)) {
+    try { out[row.id] = JSON.parse(row.data); } catch {}
+  }
+  return out;
 }
+function loadDoc(kind, id, fallback) {
+  const row = stmtOne.get(kind, id);
+  if (!row) return fallback;
+  try { return JSON.parse(row.data); } catch { return fallback; }
+}
+function docExists(kind, id) {
+  return !!stmtOne.get(kind, id);
+}
+
 // 書き込みはデバウンス（連続保存でイベントループをブロックしないように）
 const pendingWrites = new Map();
 const writeTimers = new Map();
-function flushWrite(file) {
-  const data = pendingWrites.get(file);
-  if (data === undefined) return;
-  pendingWrites.delete(file);
-  clearTimeout(writeTimers.get(file));
-  writeTimers.delete(file);
-  try { fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8'); }
-  catch (e) { console.error('保存失敗:', file, e.message); }
+function flushWrite(key) {
+  const w = pendingWrites.get(key);
+  if (!w) return;
+  pendingWrites.delete(key);
+  clearTimeout(writeTimers.get(key));
+  writeTimers.delete(key);
+  try { stmtUpsert.run(w.kind, w.id, JSON.stringify(w.data), Date.now()); }
+  catch (e) { console.error('保存失敗:', w.kind, w.id, e.message); }
 }
-function writeJSON(file, data) {
-  pendingWrites.set(file, data);
-  clearTimeout(writeTimers.get(file));
-  writeTimers.set(file, setTimeout(() => flushWrite(file), 400));
+function writeDoc(kind, id, data) {
+  const key = kind + '/' + id;
+  pendingWrites.set(key, { kind, id, data });
+  clearTimeout(writeTimers.get(key));
+  writeTimers.set(key, setTimeout(() => flushWrite(key), 400));
 }
-function cancelWrite(file) {
-  pendingWrites.delete(file);
-  clearTimeout(writeTimers.get(file));
-  writeTimers.delete(file);
+function deleteDoc(kind, id) {
+  const key = kind + '/' + id;
+  pendingWrites.delete(key);
+  clearTimeout(writeTimers.get(key));
+  writeTimers.delete(key);
+  try { stmtDelete.run(kind, id); }
+  catch (e) { console.error('削除失敗:', kind, id, e.message); }
 }
 process.on('exit', () => {
-  for (const file of [...pendingWrites.keys()]) flushWrite(file);
+  for (const key of [...pendingWrites.keys()]) flushWrite(key);
 });
+
+// ---------- レガシーJSONからの自動移行 ----------
+function migrateStore(kind, file) {
+  if (!fs.existsSync(file)) return;
+  if (stmtAll.all(kind).length) return; // 既にDBにデータがある
+  try {
+    const obj = JSON.parse(fs.readFileSync(file, 'utf8'));
+    for (const [id, v] of Object.entries(obj)) {
+      stmtUpsert.run(kind, id, JSON.stringify(v), Date.now());
+    }
+    console.log(`データ移行完了: ${path.basename(file)} -> sqlite (${kind}: ${Object.keys(obj).length}件)`);
+  } catch (e) { console.error('移行失敗:', file, e.message); }
+}
+function migrateDoc(kind, id, file) {
+  if (!fs.existsSync(file)) return;
+  if (docExists(kind, id)) return;
+  try {
+    stmtUpsert.run(kind, id, fs.readFileSync(file, 'utf8'), Date.now());
+    console.log(`データ移行完了: ${path.basename(file)} -> sqlite (${kind})`);
+  } catch (e) { console.error('移行失敗:', file, e.message); }
+}
+function migrateSnapshots() {
+  if (!fs.existsSync(LEGACY_SNAP_DIR)) return;
+  let n = 0;
+  for (const f of fs.readdirSync(LEGACY_SNAP_DIR)) {
+    if (!f.endsWith('.json')) continue;
+    const id = f.slice(0, -5);
+    if (docExists('snapshot', id)) continue;
+    try {
+      stmtUpsert.run('snapshot', id, fs.readFileSync(path.join(LEGACY_SNAP_DIR, f), 'utf8'), Date.now());
+      n++;
+    } catch {}
+  }
+  if (n) console.log(`データ移行完了: snapshots -> sqlite (${n}件)`);
+}
+migrateStore('conv', LEGACY_FILES.conv);
+migrateStore('card', LEGACY_FILES.card);
+migrateStore('template', LEGACY_FILES.template);
+migrateStore('source', LEGACY_FILES.source);
+migrateDoc('config', 'main', LEGACY_FILES.config);
+migrateDoc('manuscript', 'main', LEGACY_FILES.manuscript);
+migrateSnapshots();
 
 const defaultConfig = {
   apiKey: '',
@@ -66,20 +144,22 @@ const defaultConfig = {
   lanAccess: false
 };
 
-const savedConfig = readJSON(CONFIG_FILE, {});
+const savedConfig = loadDoc('config', 'main', {});
 let config = {
   ...defaultConfig,
   ...savedConfig,
   params: { ...defaultConfig.params, ...(savedConfig.params || {}) }
 };
-let conversations = readJSON(CONV_FILE, {});
-let cards = readJSON(CARDS_FILE, {});
-let templates = readJSON(TEMPLATES_FILE, {});
-let manuscript = readJSON(MANU_FILE, { title: '無題', chapters: [] });
-let sources = readJSON(SRC_FILE, {});
+let conversations = loadStore('conv');
+let cards = loadStore('card');
+let templates = loadStore('template');
+let manuscript = loadDoc('manuscript', 'main', { title: '無題', chapters: [] });
+let sources = loadStore('source');
+// 実際に 0.0.0.0 で外部公開中か（startListener で更新）
+let lanPublic = false;
 
 function getLanUrl() {
-  if (config.lanAccess !== true) return null;
+  if (config.lanAccess !== true || !lanPublic) return null;
   const ifaces = os.networkInterfaces();
   for (const list of Object.values(ifaces)) {
     for (const i of list || []) {
@@ -135,6 +215,8 @@ app.get('/api/config', (req, res) => {
     stream: config.stream !== false,
     sendOnEnter: config.sendOnEnter === true,
     lanAccess: config.lanAccess === true,
+    lanPublic,
+    accessTokenSet: !!ACCESS_TOKEN,
     lanUrl: getLanUrl()
   });
 });
@@ -155,7 +237,7 @@ app.post('/api/config', (req, res) => {
   if (typeof b.stream === 'boolean') config.stream = b.stream;
   if (typeof b.sendOnEnter === 'boolean') config.sendOnEnter = b.sendOnEnter;
   if (typeof b.lanAccess === 'boolean') config.lanAccess = b.lanAccess;
-  writeJSON(CONFIG_FILE, config);
+  writeDoc('config', 'main', config);
   if ((config.lanAccess === true) !== prevLan) restartListener();
   res.json({ ok: true });
 });
@@ -200,15 +282,15 @@ app.post('/api/conversations', (req, res) => {
     cardIds: Array.isArray(b.cardIds) ? b.cardIds : [],
     totalTokens: b.totalTokens || { input: 0, output: 0 }
   };
-  writeJSON(CONV_FILE, conversations);
+  writeDoc('conv', id, conversations[id]);
   res.json(conversations[id]);
 });
 
 app.get('/api/conversations/:id', (req, res) => {
   const c = conversations[req.params.id];
   if (!c) return res.status(404).json({ error: 'not found' });
-  // スナップショットは別ファイルから合成して返す（本体オブジェクトは汚さない）
-  const snapshots = readJSON(snapFile(c.id), c.snapshots || []);
+  // スナップショットは別ドキュメントから合成して返す（本体オブジェクトは汚さない）
+  const snapshots = loadDoc('snapshot', c.id, c.snapshots || []);
   res.json({ ...c, snapshots });
 });
 
@@ -222,26 +304,26 @@ app.put('/api/conversations/:id', (req, res) => {
   if (b.profile && typeof b.profile === 'object') c.profile = { ...c.profile, ...b.profile };
   if (Array.isArray(b.cardIds)) c.cardIds = b.cardIds;
   if (Array.isArray(b.snapshots)) {
-    const sf = snapFile(req.params.id);
-    if (b.snapshots.length || fs.existsSync(sf)) writeJSON(sf, b.snapshots.slice(-100));
-    delete c.snapshots; // 本体JSONには埋め込まない
+    if (b.snapshots.length || docExists('snapshot', req.params.id)) {
+      writeDoc('snapshot', req.params.id, b.snapshots.slice(-100));
+    }
+    delete c.snapshots; // 本体には埋め込まない
   } else if (c.snapshots) {
-    // 旧形式（埋め込み）のスナップショットを分離ファイルへ移行
-    writeJSON(snapFile(req.params.id), c.snapshots.slice(-100));
+    // 旧形式（埋め込み）のスナップショットを別ドキュメントへ移行
+    writeDoc('snapshot', req.params.id, c.snapshots.slice(-100));
     delete c.snapshots;
   }
   if (b.totalTokens) c.totalTokens = b.totalTokens;
   c.updated = Date.now();
-  writeJSON(CONV_FILE, conversations);
+  writeDoc('conv', req.params.id, c);
   res.json({ ok: true });
 });
 
 app.delete('/api/conversations/:id', (req, res) => {
   if (!conversations[req.params.id]) return res.status(404).json({ error: 'not found' });
   delete conversations[req.params.id];
-  cancelWrite(snapFile(req.params.id)); // デバウンス中の書き込みをキャンセルしてから削除
-  try { fs.rmSync(snapFile(req.params.id), { force: true }); } catch {}
-  writeJSON(CONV_FILE, conversations);
+  deleteDoc('conv', req.params.id);
+  deleteDoc('snapshot', req.params.id);
   res.json({ ok: true });
 });
 
@@ -274,9 +356,9 @@ app.get('/api/search', (req, res) => {
 });
 
 // ---------- Cards / Templates ----------
-function cardCRUD(file, store) {
-  app.get('/api/' + file, (req, res) => res.json(Object.values(store)));
-  app.post('/api/' + file, (req, res) => {
+function cardCRUD(route, kind, store) {
+  app.get('/api/' + route, (req, res) => res.json(Object.values(store)));
+  app.post('/api/' + route, (req, res) => {
     const b = req.body || {};
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     store[id] = {
@@ -289,10 +371,10 @@ function cardCRUD(file, store) {
       tags: String(b.tags || '').slice(0, 500),
       created: Date.now()
     };
-    writeJSON(path.join(DATA_DIR, file + '.json'), store);
+    writeDoc(kind, id, store[id]);
     res.json(store[id]);
   });
-  app.put('/api/' + file + '/:id', (req, res) => {
+  app.put('/api/' + route + '/:id', (req, res) => {
     const c = store[req.params.id];
     if (!c) return res.status(404).json({ error: 'not found' });
     const b = req.body || {};
@@ -302,18 +384,18 @@ function cardCRUD(file, store) {
     if (typeof b.resolved === 'boolean') c.resolved = b.resolved;
     if (typeof b.triggers === 'string') c.triggers = b.triggers.slice(0, 500);
     if (typeof b.tags === 'string') c.tags = b.tags.slice(0, 500);
-    writeJSON(path.join(DATA_DIR, file + '.json'), store);
+    writeDoc(kind, req.params.id, c);
     res.json(c);
   });
-  app.delete('/api/' + file + '/:id', (req, res) => {
+  app.delete('/api/' + route + '/:id', (req, res) => {
     if (!store[req.params.id]) return res.status(404).json({ error: 'not found' });
     delete store[req.params.id];
-    writeJSON(path.join(DATA_DIR, file + '.json'), store);
+    deleteDoc(kind, req.params.id);
     res.json({ ok: true });
   });
 }
-cardCRUD('cards', cards);
-cardCRUD('templates', templates);
+cardCRUD('cards', 'card', cards);
+cardCRUD('templates', 'template', templates);
 
 // ---------- Manuscript（原稿） ----------
 app.get('/api/manuscript', (req, res) => res.json(manuscript));
@@ -332,7 +414,7 @@ app.put('/api/manuscript', (req, res) => {
     })),
     updated: Date.now()
   };
-  writeJSON(MANU_FILE, manuscript);
+  writeDoc('manuscript', 'main', manuscript);
   res.json({ ok: true });
 });
 
@@ -354,7 +436,7 @@ app.post('/api/sources', (req, res) => {
     created: Date.now(),
     updated: Date.now()
   };
-  writeJSON(SRC_FILE, sources);
+  writeDoc('source', id, sources[id]);
   res.json(sources[id]);
 });
 app.put('/api/sources/:id', (req, res) => {
@@ -365,13 +447,13 @@ app.put('/api/sources/:id', (req, res) => {
   if (typeof b.project === 'string') s.project = b.project.slice(0, 100);
   if (typeof b.content === 'string') s.content = b.content.slice(0, 500000);
   s.updated = Date.now();
-  writeJSON(SRC_FILE, sources);
+  writeDoc('source', req.params.id, s);
   res.json(s);
 });
 app.delete('/api/sources/:id', (req, res) => {
   if (!sources[req.params.id]) return res.status(404).json({ error: 'not found' });
   delete sources[req.params.id];
-  writeJSON(SRC_FILE, sources);
+  deleteDoc('source', req.params.id);
   res.json({ ok: true });
 });
 
@@ -426,7 +508,14 @@ app.post('/api/chat', async (req, res) => {
 const FORCE_HOST = process.env.HOST || '';
 let server = null;
 function startListener() {
-  const host = FORCE_HOST || (config.lanAccess === true ? '0.0.0.0' : '127.0.0.1');
+  // 外部公開（LAN公開・HOST=0.0.0.0）にはアクセスキーが必須。
+  // ACCESS_TOKEN 未設定で lanAccess がONでも localhost のみに留める
+  const wantPublic = !!FORCE_HOST || config.lanAccess === true;
+  const host = FORCE_HOST || (wantPublic && ACCESS_TOKEN ? '0.0.0.0' : '127.0.0.1');
+  lanPublic = host === '0.0.0.0';
+  if (wantPublic && !ACCESS_TOKEN) {
+    console.warn('警告: ACCESS_TOKEN が未設定のため外部公開を無効化しました（127.0.0.1 のみで待受）');
+  }
   server = app.listen(PORT, host, () => {
     if (host === '0.0.0.0') {
       console.log(`AI Novelist Studio: http://localhost:${PORT}（LAN公開中: ${getLanUrl() || 'IP取得失敗'}）`);
