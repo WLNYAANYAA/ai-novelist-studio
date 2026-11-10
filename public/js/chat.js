@@ -4,7 +4,7 @@ import { esc, appAlert, appPrompt, nekoifyInput, api } from './util.js';
 import { config, current, fun, busy, abortCtrl, allSources, setBusyState, setAbortCtrl, setPendingStyle, draftKey } from './state.js';
 import { addMsg, addBotMsg, addUserActions, addBotActions, addSceneDivider, renderBotContent, scrollChat, updateCharCount } from './messages.js';
 import { saveConversation, refreshConvList, openConversation } from './conversations.js';
-import { selectedCardsText, maybeAutoCompress } from './context.js';
+import { selectedCardsText, maybeAutoCompress, rawStartIndex, compressAgedMemories } from './context.js';
 import { lorebookCardsText, tagCardsText, hideTagSug } from './tags.js';
 import { openSettings } from './settings.js';
 import { logChars } from './ai-tools.js';
@@ -33,6 +33,10 @@ function composeSystemPrompt() {
   if (p.stylePreset) parts.push(applyVars('文体指定: ' + p.stylePreset));
   if (p.plot?.trim()) parts.push('【プロット】\n' + applyVars(p.plot.trim()));
   if (p.summary?.trim()) parts.push('【これまでのあらすじ（圧縮済み）】\n' + applyVars(p.summary.trim()));
+  if (config.params.hybridMemory !== false) {
+    const mems = current?.profile?.memories;
+    if (Array.isArray(mems) && mems.length) parts.push('【長期記憶（英語圧縮メモ・時系列）】\n' + mems.join('\n'));
+  }
   if (p.worldMemo?.trim()) parts.push('【文脈メモ】\n' + applyVars(p.worldMemo.trim()));
   const cardsText = selectedCardsText();
   if (cardsText) parts.push('【設定カード】\n' + cardsText);
@@ -80,8 +84,14 @@ export function apiMessages() {
 // AIが実際に読む会話履歴（メモリ設定: params.historyLimit 件まで。0=全て）
 export function contextMessages() {
   const msgs = apiMessages();
-  const n = parseInt(config.params.historyLimit) || 0;
-  return n > 0 ? msgs.slice(-n) : msgs;
+  if (config.params.hybridMemory === false) {
+    const n = parseInt(config.params.historyLimit) || 0;
+    return n > 0 ? msgs.slice(-n) : msgs;
+  }
+  // ハイブリッド記憶: 直近1往復は生テキスト、_mem印の付いた古い交換は英語圧縮メモリ側で供給。
+  // まだ圧縮されていない古いメッセージは生のまま残す（圧縮完了までコンテキストを失わないため）
+  const start = rawStartIndex(msgs);
+  return msgs.slice(0, start).filter(m => !m._mem).concat(msgs.slice(start));
 }
 
 export function apiKeyMissing() { return !(config.hasApiKey || config.noAuth); }
@@ -261,7 +271,7 @@ export async function runCompletion() {
     updateTokenBadge();
     saveConversation(conv);
     renderConvList();
-    setTimeout(() => { if (current === conv) maybeAutoCompress(); }, 800);
+    setTimeout(() => { if (current === conv) { maybeAutoCompress(); compressAgedMemories(conv); } }, 800);
     inputEl.focus();
   }
 }

@@ -82,6 +82,65 @@ export async function callApiOnce(messages) {
   return { text: json.choices?.[0]?.message?.content || '', usage: json.usage };
 }
 
+// ---------- ハイブリッド記憶（直近は生テキスト・過去は英語圧縮メモ） ----------
+export const RAW_EXCHANGES = 1;  // 完全記憶（生テキスト）する直近のやり取り数
+const MEM_KEEP = 9;       // 英語圧縮メモとして保持する最大やり取り数
+const COMPRESS_PER_RUN = 3; // 1回の生成後に圧縮する最大やり取り数（APIコール節約）
+
+// 生テキスト窓の開始index（このindex以降が「直近RAW_EXCHANGES往復」）
+export function rawStartIndex(msgs) {
+  let seen = 0;
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    if (msgs[i].role !== 'assistant') continue;
+    seen++;
+    if (seen > RAW_EXCHANGES) return i + 1;
+  }
+  return 0;
+}
+
+// 生成完了後に呼ぶ：窓より古い「完了したやり取り」を英語圧縮メモに変換する
+export async function compressAgedMemories(conv = current) {
+  if (!conv || config.params.hybridMemory === false || busy) return;
+  const msgs = conv.messages.filter(m => m.role === 'user' || m.role === 'assistant');
+  const start = rawStartIndex(msgs);
+  if (start < 2) return;
+  // 窓より古い領域をやり取り単位に区切る（user...→assistant の塊）
+  const exchanges = [];
+  let s = 0;
+  for (let i = 0; i < start; i++) {
+    if (msgs[i].role === 'assistant') { exchanges.push([s, i]); s = i + 1; }
+  }
+  const pending = exchanges.filter(([a, b]) => !msgs.slice(a, b + 1).every(m => m._mem));
+  if (!pending.length) return;
+  conv.profile = conv.profile || {};
+  const mems = Array.isArray(conv.profile.memories) ? conv.profile.memories.slice() : [];
+  // 保持枠を超える古い交換はメモリを作らず _mem のみ付与（忘却）
+  const keepFrom = Math.max(0, pending.length - Math.max(0, MEM_KEEP - mems.length));
+  let made = 0, dropped = 0;
+  for (let ei = 0; ei < pending.length && made < COMPRESS_PER_RUN; ei++) {
+    const [a, b] = pending[ei];
+    const rangeMsgs = msgs.slice(a, b + 1);
+    if (ei < keepFrom) { rangeMsgs.forEach(m => { m._mem = true; }); dropped++; continue; }
+    const transcript = rangeMsgs.map(m =>
+      `${m.role === 'user' ? '【ユーザー】' : '【AI】'}\n${(m.content || '').slice(0, 1500)}`
+    ).join('\n\n').slice(0, 12000);
+    try {
+      const { text } = await callApiOnce([
+        { role: 'system', content: 'You compress novel-writing chat logs into ultra-compact English memory notes for an AI novelist. Output ONLY terse English bullet facts (under 60 words): character states, locations, events, foreshadowing, unresolved threads. No Japanese. No explanation.' },
+        { role: 'user', content: transcript }
+      ]);
+      const line = (text || '').trim();
+      if (!line) break;
+      mems.push(line);
+      if (mems.length > MEM_KEEP) mems.splice(0, mems.length - MEM_KEEP);
+      conv.profile.memories = mems;
+      rangeMsgs.forEach(m => { m._mem = true; });
+      made++;
+    } catch { break; } // 圧縮失敗時は次回の生成後に再試行
+  }
+  if (made || dropped) saveConversation(conv);
+}
+
 export function convTranscript(maxChars = 45000) {
   let s = '';
   for (const m of apiMessages()) {

@@ -385,6 +385,7 @@ export async function saveProfile() {
   }
   current.project = proj;
   current.profile = {
+    ...(current.profile || {}),
     systemPrompt: $('pSystemPrompt').value,
     worldMemo: $('pWorldMemo').value,
     plot: $('pPlot').value,

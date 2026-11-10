@@ -73,6 +73,7 @@ export function openSettings() {
   $('sHistoryLimit').value = config.params.historyLimit ?? 0;
   $('sAutoCards').checked = config.params.autoCards !== false;
   $('sAutoCompress').checked = config.params.autoCompress !== false;
+  $('sHybridMem').checked = config.params.hybridMemory !== false;
   $('sRealTokens').checked = config.params.realTokens === true;
   $('sNoMarkdown').checked = config.params.noMarkdown !== false;
   $('sNoEmoji').checked = config.params.noEmoji !== false;
@@ -94,6 +95,7 @@ export async function saveSettings() {
       historyLimit: parseInt($('sHistoryLimit').value) || 0,
       autoCards: $('sAutoCards').checked,
       autoCompress: $('sAutoCompress').checked,
+      hybridMemory: $('sHybridMem').checked,
       realTokens: $('sRealTokens').checked,
       noMarkdown: $('sNoMarkdown').checked,
       noEmoji: $('sNoEmoji').checked,
