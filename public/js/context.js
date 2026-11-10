@@ -85,7 +85,6 @@ export async function callApiOnce(messages) {
 // ---------- ハイブリッド記憶（直近は生テキスト・過去は英語圧縮メモ） ----------
 export const RAW_EXCHANGES = 1;  // 完全記憶（生テキスト）する直近のやり取り数
 const MEM_KEEP = 9;       // 英語圧縮メモとして保持する最大やり取り数
-const COMPRESS_PER_RUN = 3; // 1回の生成後に圧縮する最大やり取り数（APIコール節約）
 
 // 生テキスト窓の開始index（このindex以降が「直近RAW_EXCHANGES往復」）
 export function rawStartIndex(msgs) {
@@ -101,6 +100,8 @@ export function rawStartIndex(msgs) {
 // 生成完了後に呼ぶ：窓より古い「完了したやり取り」を英語圧縮メモに変換する
 export async function compressAgedMemories(conv = current) {
   if (!conv || config.params.hybridMemory === false || busy) return;
+  // コンテキストに余裕がある間は圧縮しない（無駄なAPIコールを節約。生テキストのまま送っても収まるため）
+  if (estContextTokens() < contextBudget() * 0.5) return;
   const msgs = conv.messages.filter(m => m.role === 'user' || m.role === 'assistant');
   const start = rawStartIndex(msgs);
   if (start < 2) return;
@@ -117,7 +118,7 @@ export async function compressAgedMemories(conv = current) {
   // 保持枠を超える古い交換はメモリを作らず _mem のみ付与（忘却）
   const keepFrom = Math.max(0, pending.length - Math.max(0, MEM_KEEP - mems.length));
   let made = 0, dropped = 0;
-  for (let ei = 0; ei < pending.length && made < COMPRESS_PER_RUN; ei++) {
+  for (let ei = 0; ei < pending.length && made < MEM_KEEP; ei++) {
     const [a, b] = pending[ei];
     const rangeMsgs = msgs.slice(a, b + 1);
     if (ei < keepFrom) { rangeMsgs.forEach(m => { m._mem = true; }); dropped++; continue; }
