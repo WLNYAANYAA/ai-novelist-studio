@@ -1,7 +1,7 @@
 {
   "name": "ai-novelist-studio",
   "productName": "AI Novelist Studio",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "AIのべりすと API を使った小説執筆・チャットツール",
   "main": "main.js",
   "scripts": {
