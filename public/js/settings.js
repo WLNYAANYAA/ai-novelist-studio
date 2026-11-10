@@ -82,6 +82,10 @@ export function openSettings() {
   updateModelHint();
   refreshTemplates();
   $('settingsModal').classList.remove('hidden');
+  fetch('/api/version').then(r => r.json()).then(v => {
+    const el = $('aboutInfo');
+    if (el && v.version) el.textContent = `${v.name || 'AI Novelist Studio'} v${v.version} · MIT License`;
+  }).catch(() => {});
 }
 export async function saveSettings() {
   const body = {

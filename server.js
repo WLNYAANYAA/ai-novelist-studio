@@ -200,6 +200,14 @@ if (ACCESS_TOKEN) {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ---------- App info ----------
+app.get('/api/version', (req, res) => {
+  try {
+    const p = require('./package.json');
+    res.json({ name: p.productName || p.name, version: p.version || '' });
+  } catch { res.json({ name: 'AI Novelist Studio', version: '' }); }
+});
+
 // ---------- Config ----------
 app.get('/api/config', (req, res) => {
   res.json({
