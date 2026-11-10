@@ -1,7 +1,7 @@
 // ---------- Send / Completion engine ----------
 import { $, chatEl, inputEl, sendBtn, stopBtn, tokenBadgeEl } from './dom.js';
 import { esc, appAlert, appPrompt, nekoifyInput, api } from './util.js';
-import { config, current, fun, busy, abortCtrl, allSources, setBusyState, setAbortCtrl, setPendingStyle, draftKey } from './state.js';
+import { config, current, fun, busy, abortCtrl, allSources, pendingStyle, setBusyState, setAbortCtrl, setPendingStyle, draftKey } from './state.js';
 import { addMsg, addBotMsg, addUserActions, addBotActions, addSceneDivider, renderBotContent, scrollChat, updateCharCount } from './messages.js';
 import { saveConversation, refreshConvList, openConversation } from './conversations.js';
 import { selectedCardsText, maybeAutoCompress, rawStartIndex, compressAgedMemories, callApiOnce, convTranscript } from './context.js';
