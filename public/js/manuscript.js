@@ -45,6 +45,11 @@ export function updateMsStats() {
   el.textContent = `総計 ${total.toLocaleString()}字`
     + (goal ? ` / 目標 ${goal.toLocaleString()}字 (${pct}%)` : '')
     + ` · 本日 +${manuscript._stats.dayChars.toLocaleString()}字`;
+  const bar = $('msProgressBar');
+  if (bar) {
+    bar.style.width = goal ? pct + '%' : '0%';
+    bar.parentElement.style.display = goal ? '' : 'none';
+  }
 }
 export function msSetGoal(v) {
   manuscript.goal = String(v || '').trim();
@@ -126,7 +131,9 @@ function updateMsEditor() {
   $('msEditor').value = sc ? sc.content : '';
 }
 export function toggleManuscriptPane() {
-  $('manuscriptPane').classList.toggle('hidden');
+  const pane = $('manuscriptPane');
+  pane.classList.toggle('hidden');
+  $('qbManuscript')?.classList.toggle('active', !pane.classList.contains('hidden'));
 }
 export function adoptToManuscript(text) {
   const t = (text || '').trim();
@@ -147,6 +154,7 @@ export function adoptToManuscript(text) {
   updateMsEditor();
   scheduleMsSave();
   $('manuscriptPane').classList.remove('hidden');
+  $('qbManuscript')?.classList.add('active');
   $('msStatus').textContent = `「${sc.title}」に追加しました`;
   setTimeout(() => { if ($('msStatus').textContent.startsWith('「')) $('msStatus').textContent = ''; }, 2500);
 }

@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>AI Novelist Studio</title>
-<link rel="stylesheet" href="/css/style.css?v=23">
+<link rel="stylesheet" href="/css/style.css?v=24">
 </head>
 <body>
 <script>document.documentElement.dataset.sidebar = localStorage.getItem('sidebar_collapsed') === '1' ? 'collapsed' : '';</script>
@@ -285,8 +285,11 @@
           <button id="btnMsForeshadow" class="btn-ghost btn-sm">伏線チェック</button>
         </div>
         <div class="ms-stats-row">
-          <span id="msStats" class="hint"></span>
-          <input id="msGoal" type="number" min="0" step="1000" placeholder="目標文字数">
+          <div class="ms-stats-info">
+            <span id="msStats" class="hint"></span>
+            <div class="ms-progress"><i id="msProgressBar"></i></div>
+          </div>
+          <label class="ms-goal-wrap" title="目標文字数（達成率と進捗バーに反映）">目標<input id="msGoal" type="number" min="0" step="1000" placeholder="—"></label>
         </div>
         <div id="msTree"></div>
         <div class="ms-editor">
@@ -552,7 +555,7 @@
 <div id="tplModal" class="modal hidden">
   <div class="modal-content">
     <div class="modal-header">
-      <h2>プロンプトテンプレート</h2>
+      <h2><svg class="icon"><use href="#i-sparkle"/></svg> プロンプトテンプレート</h2>
       <button class="modal-close" id="btnCloseTpl"><svg class="icon"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body">
@@ -576,7 +579,7 @@
 <div id="resultModal" class="modal hidden">
   <div class="modal-content" style="width:min(640px,92vw)">
     <div class="modal-header">
-      <h2 id="resultTitle">結果</h2>
+      <h2 id="resultTitle"><svg class="icon"><use href="#i-book"/></svg> <span id="resultTitleText">結果</span></h2>
       <button class="modal-close" id="btnCloseResult"><svg class="icon"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body" id="resultBody"></div>
@@ -587,7 +590,7 @@
 <div id="macroModal" class="modal hidden">
   <div class="modal-content" style="width:min(560px,92vw)">
     <div class="modal-header">
-      <h2>クイックマクロ（ホットキー）</h2>
+      <h2><svg class="icon"><use href="#i-edit"/></svg> クイックマクロ（ホットキー）</h2>
       <button class="modal-close" id="btnCloseMacro"><svg class="icon"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body">
@@ -613,7 +616,7 @@
 <div id="historyModal" class="modal hidden">
   <div class="modal-content">
     <div class="modal-header">
-      <h2>版の履歴（スナップショット）</h2>
+      <h2><svg class="icon"><use href="#i-refresh"/></svg> 版の履歴（スナップショット）</h2>
       <button class="modal-close" id="btnCloseHistory"><svg class="icon"><use href="#i-close"/></svg></button>
     </div>
     <div class="modal-body" id="historyList"></div>
@@ -622,6 +625,6 @@
 
 <script src="/js/marked.min.js?v=22"></script>
 <script src="/js/purify.min.js?v=22"></script>
-<script type="module" src="/js/app.js?v=25"></script>
+<script type="module" src="/js/app.js?v=26"></script>
 </body>
 </html>

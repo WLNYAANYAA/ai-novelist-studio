@@ -81,7 +81,7 @@ export function downloadFile(name, content, mime) {
 
 // ---------- 汎用結果モーダル ----------
 export function showResultModal(title, html) {
-  $('resultTitle').textContent = title;
+  $('resultTitleText').textContent = title;
   $('resultBody').innerHTML = html;
   $('resultModal').classList.remove('hidden');
 }

@@ -254,7 +254,7 @@ export function showOutline() {
       <span class="hint">${n.count}件</span>
     </div>`
   ).join('');
-  $('resultTitle').textContent = `目次 — ${current.title}`;
+  $('resultTitleText').textContent = `目次 — ${current.title}`;
   $('resultBody').innerHTML = html;
   $('resultBody').querySelectorAll('.outline-item').forEach(el => {
     el.onclick = () => {

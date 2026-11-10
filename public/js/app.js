@@ -47,7 +47,10 @@ function bindUI() {
   $('btnSidebarToggle').onclick = toggleSidebar;
   // 原稿ペイン
   $('qbManuscript').onclick = toggleManuscriptPane;
-  $('btnMsClose').onclick = () => $('manuscriptPane').classList.add('hidden');
+  $('btnMsClose').onclick = () => {
+    $('manuscriptPane').classList.add('hidden');
+    $('qbManuscript')?.classList.remove('active');
+  };
   $('btnMsExport').onclick = exportManuscript;
   $('btnMsAddChapter').onclick = msAddChapter;
   $('btnMsAddScene').onclick = msAddScene;

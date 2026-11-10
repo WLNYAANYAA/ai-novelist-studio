@@ -72,7 +72,7 @@ export async function genVariants(n = 3) {
       catch { sec.querySelector('.variant-text').textContent = t; }
       body.appendChild(sec);
     });
-    $('resultTitle').textContent = `別案候補（${n}案）`;
+    $('resultTitleText').textContent = `別案候補（${n}案）`;
     $('resultBody').innerHTML = '';
     $('resultBody').appendChild(body);
     const bar = document.createElement('div');
@@ -118,7 +118,7 @@ export async function analyzeEmotion() {
       }
     }
     if (!rows.length) {
-      $('resultTitle').textContent = '感情曲線';
+      $('resultTitleText').textContent = '感情曲線';
       $('resultBody').innerHTML = '<p class="hint">解析できませんでした。生の出力:</p><pre style="white-space:pre-wrap;font-size:12px">' + esc(text || '') + '</pre>';
       $('resultModal').classList.remove('hidden');
       return;
@@ -129,7 +129,7 @@ export async function analyzeEmotion() {
       `<div class="emo-bar"><div class="emo-fill" style="width:${r.score / max * 100}%"></div></div>` +
       `<span class="emo-score">${r.score}</span><span class="emo-mood">${esc(r.mood)}</span></div>`
     ).join('');
-    $('resultTitle').textContent = '感情曲線（緊張度 1-10）';
+    $('resultTitleText').textContent = '感情曲線（緊張度 1-10）';
     $('resultBody').innerHTML = html;
     $('resultModal').classList.remove('hidden');
   } finally { setBusy(false); }
@@ -156,7 +156,7 @@ export async function collectTerms() {
       }
     }
     if (!items.length) {
-      $('resultTitle').textContent = '自動収集';
+      $('resultTitleText').textContent = '自動収集';
       $('resultBody').innerHTML = '<p class="hint">抽出できませんでした。生の出力:</p><pre style="white-space:pre-wrap;font-size:12px">' + esc(text || '') + '</pre>';
       $('resultModal').classList.remove('hidden');
       return;
@@ -179,7 +179,7 @@ export async function collectTerms() {
       row.appendChild(b);
       wrap.appendChild(row);
     }
-    $('resultTitle').textContent = `自動収集（${items.length}件）— カードに追加できます`;
+    $('resultTitleText').textContent = `自動収集（${items.length}件）— カードに追加できます`;
     $('resultBody').innerHTML = '';
     $('resultBody').appendChild(wrap);
     $('resultModal').classList.remove('hidden');
@@ -245,7 +245,7 @@ export function showWritingLog() {
     `<div class="log-bar"><div class="log-fill" style="width:${d.n / max * 100}%"></div></div>` +
     `<span class="log-num">${d.n.toLocaleString()}</span></div>`
   ).join('');
-  $('resultTitle').textContent = '執筆ログ';
+  $('resultTitleText').textContent = '執筆ログ';
   $('resultBody').innerHTML =
     `<p class="hint">直近14日合計: <strong>${total.toLocaleString()}</strong>字 ／ 今月: <strong>${monthTotal.toLocaleString()}</strong>字</p>` + rows;
   $('resultModal').classList.remove('hidden');
