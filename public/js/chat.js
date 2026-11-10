@@ -4,7 +4,7 @@ import { esc, appAlert, appPrompt, nekoifyInput, api } from './util.js';
 import { config, current, fun, busy, abortCtrl, allSources, setBusyState, setAbortCtrl, setPendingStyle, draftKey } from './state.js';
 import { addMsg, addBotMsg, addUserActions, addBotActions, addSceneDivider, renderBotContent, scrollChat, updateCharCount } from './messages.js';
 import { saveConversation, refreshConvList, openConversation } from './conversations.js';
-import { selectedCardsText, maybeAutoCompress, rawStartIndex, compressAgedMemories } from './context.js';
+import { selectedCardsText, maybeAutoCompress, rawStartIndex, compressAgedMemories, callApiOnce, convTranscript } from './context.js';
 import { lorebookCardsText, tagCardsText, hideTagSug } from './tags.js';
 import { openSettings } from './settings.js';
 import { logChars } from './ai-tools.js';
@@ -218,6 +218,7 @@ export async function runCompletion() {
       if (pendingStyle) { msgObj._style = true; setPendingStyle(false); }
       conv.messages.push(msgObj);
       addBotActions(botEl, msgObj);
+      if (config.params.suggestNext !== false) suggestNextSteps(botEl, conv);
       if (current === conv) updateCharCount();
     } else {
       botEl.remove();
@@ -322,6 +323,34 @@ function scheduleInfinite(conv) {
     addUserActions(uEl, msgObj);
     await runCompletion();
   }, 800);
+}
+
+// ---------- 次の一手提案チップ ----------
+async function suggestNextSteps(botEl, conv) {
+  try {
+    const { text } = await callApiOnce([
+      { role: 'system', content: 'あなたは小説執筆のアシスタントです。直前の会話を読み、ユーザーが次にAIへ送りそうな指示を3つだけ考えてください。各行に1つずつ、20字以内の短い日本語の指示文のみを出力してください。番号・記号・説明・前置きは一切付けないでください。' },
+      { role: 'user', content: convTranscript(6000) }
+    ]);
+    const items = (text || '')
+      .split('\n')
+      .map(s => s.replace(/^[\d.\-・\s]+/, '').trim())
+      .filter(s => s && s.length <= 40)
+      .slice(0, 3);
+    if (!items.length || current !== conv || !botEl.isConnected) return;
+    chatEl.querySelectorAll('.next-sugs').forEach(e => e.remove());
+    const box = document.createElement('div');
+    box.className = 'next-sugs';
+    for (const t of items) {
+      const b = document.createElement('button');
+      b.className = 'next-sug';
+      b.textContent = '→ ' + t;
+      b.onclick = () => { box.remove(); sendInstruction(t); };
+      box.appendChild(b);
+    }
+    botEl.appendChild(box);
+    scrollChat();
+  } catch {}
 }
 
 // ---------- クイック指示 ----------

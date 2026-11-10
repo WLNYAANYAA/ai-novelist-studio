@@ -412,6 +412,10 @@ app.put('/api/manuscript', (req, res) => {
         content: String(sc.content || '').slice(0, 200000)
       }))
     })),
+    goal: String(b.goal || '').slice(0, 50),
+    _stats: b._stats && typeof b._stats === 'object'
+      ? { date: String(b._stats.date || ''), dayChars: Math.max(0, parseInt(b._stats.dayChars) || 0), totalChars: Math.max(0, parseInt(b._stats.totalChars) || 0) }
+      : undefined,
     updated: Date.now()
   };
   writeDoc('manuscript', 'main', manuscript);

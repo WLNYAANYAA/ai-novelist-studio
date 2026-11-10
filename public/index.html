@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>AI Novelist Studio</title>
-<link rel="stylesheet" href="/css/style.css?v=22">
+<link rel="stylesheet" href="/css/style.css?v=23">
 </head>
 <body>
 <script>document.documentElement.dataset.sidebar = localStorage.getItem('sidebar_collapsed') === '1' ? 'collapsed' : '';</script>
@@ -282,6 +282,11 @@
           <button id="btnMsAddChapter" class="btn-ghost btn-sm">＋章</button>
           <button id="btnMsAddScene" class="btn-ghost btn-sm">＋シーン</button>
           <button id="btnMsDel" class="btn-ghost btn-sm">削除</button>
+          <button id="btnMsForeshadow" class="btn-ghost btn-sm">伏線チェック</button>
+        </div>
+        <div class="ms-stats-row">
+          <span id="msStats" class="hint"></span>
+          <input id="msGoal" type="number" min="0" step="1000" placeholder="目標文字数">
         </div>
         <div id="msTree"></div>
         <div class="ms-editor">
@@ -374,6 +379,7 @@
           <label class="set-label" style="justify-content:flex-end"><input type="checkbox" id="sAutoCards" checked> 関連カードを自動選択して注入</label>
           <label class="set-label" style="justify-content:flex-end"><input type="checkbox" id="sAutoCompress" checked> 予算超過時に自動圧縮</label>
           <label class="set-label" style="justify-content:flex-end"><input type="checkbox" id="sHybridMem" checked> ハイブリッド記憶（直近1往復は完全記憶・過去9往復は英語圧縮）</label>
+          <label class="set-label" style="justify-content:flex-end"><input type="checkbox" id="sSuggestNext" checked> 次の一手をAIが提案（応答後に候補ボタン表示）</label>
           <label class="set-label" style="justify-content:flex-end"><input type="checkbox" id="sRealTokens"> 実トークン計測（trin_tokenizer・初回DLあり）</label>
           <label class="set-label">ソース参照プロジェクト
             <select id="pSourceProject"><option value="">（参照しない）</option></select>
@@ -616,6 +622,6 @@
 
 <script src="/js/marked.min.js?v=22"></script>
 <script src="/js/purify.min.js?v=22"></script>
-<script type="module" src="/js/app.js?v=24"></script>
+<script type="module" src="/js/app.js?v=25"></script>
 </body>
 </html>

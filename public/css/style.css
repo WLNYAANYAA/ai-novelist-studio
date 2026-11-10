@@ -849,6 +849,22 @@ body.cat-ears #convTitle::after { left: 26px; transform: rotate(14deg); }
 .ms-title { font-weight: 700; font-size: 14px; }
 .ms-actions { display: flex; gap: 6px; }
 .ms-toolbar { display: flex; gap: 6px; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+.ms-stats-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 6px 14px; border-bottom: 1px solid var(--border);
+}
+.ms-stats-row #msStats { font-size: 12px; }
+#msGoal {
+  width: 110px; padding: 4px 8px; font-size: 12px;
+  background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px;
+}
+.next-sugs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.next-sug {
+  padding: 4px 10px; font-size: 12px; border-radius: 999px; cursor: pointer;
+  background: var(--accent-soft); color: var(--accent);
+  border: 1px solid var(--accent); opacity: 0.85;
+}
+.next-sug:hover { opacity: 1; background: var(--accent); color: #fff; }
 #msTree { flex: 1; overflow-y: auto; padding: 8px 10px; font-size: 13px; }
 .ms-ch { font-weight: 700; margin: 6px 0 2px; }
 .ms-ch.sel { color: var(--accent); }

@@ -74,6 +74,7 @@ export function openSettings() {
   $('sAutoCards').checked = config.params.autoCards !== false;
   $('sAutoCompress').checked = config.params.autoCompress !== false;
   $('sHybridMem').checked = config.params.hybridMemory !== false;
+  $('sSuggestNext').checked = config.params.suggestNext !== false;
   $('sRealTokens').checked = config.params.realTokens === true;
   $('sNoMarkdown').checked = config.params.noMarkdown !== false;
   $('sNoEmoji').checked = config.params.noEmoji !== false;
@@ -96,6 +97,7 @@ export async function saveSettings() {
       autoCards: $('sAutoCards').checked,
       autoCompress: $('sAutoCompress').checked,
       hybridMemory: $('sHybridMem').checked,
+      suggestNext: $('sSuggestNext').checked,
       realTokens: $('sRealTokens').checked,
       noMarkdown: $('sNoMarkdown').checked,
       noEmoji: $('sNoEmoji').checked,

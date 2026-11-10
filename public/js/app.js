@@ -2,7 +2,7 @@
 import { $, chatEl, inputEl, convTitleEl, searchBox } from './dom.js';
 import { api, esc, appPrompt } from './util.js';
 import { config, fun, abortCtrl, allTemplates, current, setConfig, setAllCards, setAllTemplates } from './state.js';
-import { loadManuscript, toggleManuscriptPane, exportManuscript, msAddChapter, msAddScene, msDelete, msScene, scheduleMsSave } from './manuscript.js';
+import { loadManuscript, toggleManuscriptPane, exportManuscript, msAddChapter, msAddScene, msDelete, msScene, scheduleMsSave, msSetGoal, msForeshadowCheck, updateMsStats } from './manuscript.js';
 import { refreshSources, openSourcesModal, fillSourceProjectSelect, resetSourceForm, saveSource, deleteSource, importSourceFile, renderSourceList } from './sources.js';
 import { refreshConvList, restoreTabs, newConversation, renameConversation, saveProfile, deleteSelectedConvs, clearConvSelection, renderConvList, onSearchInput, queueDraftSave } from './conversations.js';
 import { initScrollWatch, exportDoc } from './messages.js';
@@ -52,6 +52,8 @@ function bindUI() {
   $('btnMsAddChapter').onclick = msAddChapter;
   $('btnMsAddScene').onclick = msAddScene;
   $('btnMsDel').onclick = msDelete;
+  $('btnMsForeshadow').onclick = msForeshadowCheck;
+  $('msGoal').onchange = e => msSetGoal(e.target.value);
   $('msSceneTitle').addEventListener('input', () => {
     const sc = msScene(); if (!sc) return;
     sc.title = $('msSceneTitle').value;
@@ -63,6 +65,7 @@ function bindUI() {
     scheduleMsSave();
     const cnt = document.querySelector('.ms-sc.sel .ms-count');
     if (cnt) cnt.textContent = `${sc.content.length}字`;
+    updateMsStats();
   });
   // ソース管理
   $('btnSources').onclick = () => openSourcesModal();

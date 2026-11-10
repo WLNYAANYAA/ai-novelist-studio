@@ -21,6 +21,15 @@ function renderCardList() {
     el.innerHTML = '<p class="hint">カードがありません。「新しいカード」で作成してください。</p>';
     return;
   }
+  const fws = allCards.filter(c => c.kind === 'foreshadow');
+  if (fws.length) {
+    const open = fws.filter(c => !c.resolved).length;
+    const d = document.createElement('div');
+    d.className = 'hint';
+    d.style.padding = '4px 8px';
+    d.textContent = `伏線トラッカー: 未回収 ${open}件 / 回収済 ${fws.length - open}件（原稿ペインの「伏線チェック」でAI提案できます）`;
+    el.appendChild(d);
+  }
   for (const c of allCards) {
     const div = document.createElement('div');
     div.className = 'card-item';
