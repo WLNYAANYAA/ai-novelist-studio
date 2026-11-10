@@ -79,6 +79,7 @@ export function openSettings() {
   $('sNoMarkdown').checked = config.params.noMarkdown !== false;
   $('sNoEmoji').checked = config.params.noEmoji !== false;
   $('sJpReasoning').checked = config.params.jpReasoning !== false;
+  $('sAdultMode').checked = config.params.adultMode === true;
   updateModelHint();
   refreshTemplates();
   $('settingsModal').classList.remove('hidden');
@@ -105,7 +106,8 @@ export async function saveSettings() {
       realTokens: $('sRealTokens').checked,
       noMarkdown: $('sNoMarkdown').checked,
       noEmoji: $('sNoEmoji').checked,
-      jpReasoning: $('sJpReasoning').checked
+      jpReasoning: $('sJpReasoning').checked,
+      adultMode: $('sAdultMode').checked
     },
     stream: $('sStream').checked,
     sendOnEnter: $('sSendOnEnter').checked,
