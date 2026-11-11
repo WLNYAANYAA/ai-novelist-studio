@@ -1,37 +1,42 @@
-# MeCab + UniDic をダウンロードして tools/ に配置するセットアップスクリプト。
-# 文体分析の「本家 jReadability スコア」を有効化するために必要。
-# 使い方: npm run setup:readability
-# 配置後は `node server.js` / `npm run dist` で自動検出される。
+# Download MeCab + UniDic into tools/ to enable the official jReadability score.
+# Usage: npm run setup:readability
+# After setup, `node server.js` / `npm run dist` auto-detects them.
+# NOTE: keep this file ASCII-only — PS 5.1 misreads UTF-8-no-BOM scripts.
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
-$ProgressPreference = 'SilentlyContinue'  # Invoke-WebRequestの進捗表示を抑制
+Start-Transcript -Path (Join-Path $root 'setup-readability.log') -Force | Out-Null
 
-# --- 1. MeCab (64bit, ikegami-yukino ビルド) ---
+$ProgressPreference = 'SilentlyContinue'
+
+# --- 1. MeCab (64bit, ikegami-yukino build) ---
 $mecabDir = Join-Path $root 'tools\mecab-dist'
-if (-not (Test-Path (Join-Path $mecabDir 'bin\mecab.exe'))) {
-    Write-Host '[1/2] MeCab をダウンロード・インストール中...'
+$mecabExe = Join-Path $mecabDir 'bin\mecab.exe'
+if (-not (Test-Path $mecabExe)) {
+    Write-Host '[1/2] Downloading and installing MeCab...'
     $installer = Join-Path $env:TEMP 'mecab-64-0.996.2.exe'
-    Invoke-WebRequest -Uri 'https://github.com/ikegami-yukino/mecab/releases/download/v0.996.2/mecab-64-0.996.2.exe' -OutFile $installer
-    # /DIR はインストール先。ディレクトリ名は mecab-dist 固定
-    # （バイナリが相対パスで etc/mecabrc を参照するためリネーム不可）
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/ikegami-yukino/mecab/releases/download/v0.996.2/mecab-64-0.996.2.exe' -OutFile $installer
+    # Dir name MUST stay "mecab-dist" (binary resolves etc/mecabrc relatively)
     Start-Process -FilePath $installer -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/DIR=`"$mecabDir`"" -Wait
-    Remove-Item $installer -Force
-    # IPA辞書は使わない（UniDicを使う）ので削除して容量削減
+    Remove-Item $installer -Force -ErrorAction SilentlyContinue
+    # Wait in case the installer finishes asynchronously via a child process
+    $waited = 0
+    while (-not (Test-Path $mecabExe) -and $waited -lt 120) { Start-Sleep -Seconds 2; $waited += 2 }
+    # IPA dictionary is unused (we use UniDic); remove to save ~95MB
     Remove-Item (Join-Path $mecabDir 'dic') -Recurse -Force -ErrorAction SilentlyContinue
     Write-Host "  -> $mecabDir"
 } else {
-    Write-Host '[1/2] MeCab は既に存在します。スキップ。'
+    Write-Host '[1/2] MeCab already exists. Skipping.'
 }
 
-# --- 2. UniDic (unidic-mecab 2.1.1 CWJ, Windows版) ---
+# --- 2. UniDic (unidic-mecab 2.1.1 CWJ, Windows build) ---
 $unidicDir = Join-Path $root 'tools\unidic-mecab'
 if (-not (Test-Path (Join-Path $unidicDir 'sys.dic'))) {
-    Write-Host '[2/2] UniDic をダウンロード・展開中...（約200MB・数分かかります）'
+    Write-Host '[2/2] Downloading and extracting UniDic... (~200MB, may take a few minutes)'
     $zip = Join-Path $env:TEMP 'unidic-mecab-211_windows.zip'
-    Invoke-WebRequest -Uri 'https://clrd.ninjal.ac.jp/unidic_archive/cwj/2.1.1/unidic-mecab-211_windows.zip' -OutFile $zip
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://clrd.ninjal.ac.jp/unidic_archive/cwj/2.1.1/unidic-mecab-211_windows.zip' -OutFile $zip
     $tmp = Join-Path $env:TEMP 'unidic-extract'
     if (Test-Path $tmp) { Remove-Item $tmp -Recurse -Force }
     Expand-Archive -Path $zip -DestinationPath $tmp
@@ -42,15 +47,17 @@ if (-not (Test-Path (Join-Path $unidicDir 'sys.dic'))) {
     Remove-Item $tmp -Recurse -Force
     Write-Host "  -> $unidicDir"
 } else {
-    Write-Host '[2/2] UniDic は既に存在します。スキップ。'
+    Write-Host '[2/2] UniDic already exists. Skipping.'
 }
 
-# --- 検証 ---
-$ok = (Test-Path (Join-Path $mecabDir 'bin\mecab.exe')) -and (Test-Path (Join-Path $unidicDir 'sys.dic'))
+Stop-Transcript | Out-Null
+
+# --- Verify ---
+$ok = (Test-Path $mecabExe) -and (Test-Path (Join-Path $unidicDir 'sys.dic'))
 if ($ok) {
     Write-Host ''
-    Write-Host 'セットアップ完了。文体分析で本家 jReadability スコアが有効になります。'
+    Write-Host 'Setup complete. The official jReadability score is now enabled.'
 } else {
-    Write-Host 'セットアップに失敗しました。上記のエラーを確認してください。' -ForegroundColor Red
+    Write-Host 'Setup FAILED. Check the errors above.' -ForegroundColor Red
     exit 1
 }

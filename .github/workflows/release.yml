@@ -50,7 +50,7 @@ jobs:
 
       # 失敗時：ログ末尾をIssueとして自動作成（公開リポジトリなのでAPIで読める）
       - name: Report build failure
-        if: failure() && steps.build.outcome == 'failure'
+        if: failure()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
@@ -58,9 +58,19 @@ jobs:
           {
             echo "Release build failed on \`${{ github.ref_name }}\`"
             echo ""
-            echo '```'
-            tail -n 80 build-log.txt
-            echo '```'
+            if [ -f setup-readability.log ]; then
+              echo '### setup-readability.log (tail)'
+              echo '```'
+              tail -n 60 setup-readability.log
+              echo '```'
+              echo ""
+            fi
+            if [ -f build-log.txt ]; then
+              echo '### build-log.txt (tail)'
+              echo '```'
+              tail -n 80 build-log.txt
+              echo '```'
+            fi
           } > issue-body.md
           gh issue create --title "Release build failed: ${{ github.ref_name }}" --body-file issue-body.md
 
@@ -69,8 +79,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: build-log
-          path: build-log.txt
+          path: |
+            build-log.txt
+            setup-readability.log
           retention-days: 7
+          if-no-files-found: ignore
 
       - name: Resolve release tag
         id: meta
