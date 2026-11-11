@@ -210,12 +210,58 @@ app.get('/api/version', (req, res) => {
 
 // ---------- Readability（jReadability: MeCab+UniDicがあれば実計測、なければ近似） ----------
 let jreadAnalyzer = null, jreadChecked = false;
+
+// 同梱のMeCab/UniDic（tools/）を自動検出。開発時は __dirname/tools、
+// パッケージ版は process.resourcesPath/tools（extraResources）を見る。
+// 環境変数 JREAD_UNIDIC / PATH 上の mecab があればそちらも使える。
+function toolsDir() {
+  const candidates = [path.join(__dirname, 'tools')];
+  if (process.resourcesPath) candidates.push(path.join(process.resourcesPath, 'tools'));
+  return candidates.find(d => fs.existsSync(path.join(d, 'mecab-dist', 'bin', 'mecab.exe')) ||
+                              fs.existsSync(path.join(d, 'mecab', 'bin', 'mecab.exe'))) || null;
+}
+const BUNDLED_UNIDIC_CANDIDATES = () => {
+  const dirs = [];
+  for (const base of [path.join(__dirname, 'tools'), process.resourcesPath && path.join(process.resourcesPath, 'tools')]) {
+    if (base) dirs.push(path.join(base, 'unidic-mecab'));
+  }
+  return dirs;
+};
+let mecabBinDirCache = null;
+function mecabBinDir() {
+  if (mecabBinDirCache !== null) return mecabBinDirCache;
+  const t = toolsDir();
+  if (!t) return (mecabBinDirCache = null);
+  for (const sub of ['mecab-dist', 'mecab']) {
+    const bin = path.join(t, sub, 'bin');
+    const exe = path.join(bin, process.platform === 'win32' ? 'mecab.exe' : 'mecab');
+    if (fs.existsSync(exe)) return (mecabBinDirCache = bin);
+  }
+  return (mecabBinDirCache = null);
+}
+function ensureMecabOnPath() {
+  const bin = mecabBinDir();
+  if (bin) {
+    const sep = path.delimiter;
+    const dirs = (process.env.PATH || '').split(sep);
+    if (!dirs.includes(bin)) process.env.PATH = bin + sep + process.env.PATH;
+  }
+}
+function resolveUnidic() {
+  const env = process.env.JREAD_UNIDIC;
+  if (env && fs.existsSync(path.join(env, 'sys.dic'))) return env;
+  for (const d of BUNDLED_UNIDIC_CANDIDATES()) {
+    if (fs.existsSync(path.join(d, 'sys.dic'))) return d;
+  }
+  return null;
+}
 async function getJreadAnalyzer() {
   if (jreadChecked) return jreadAnalyzer;
   jreadChecked = true;
-  const dic = process.env.JREAD_UNIDIC;
-  if (!dic || !fs.existsSync(dic)) { jreadAnalyzer = false; return null; }
+  const dic = resolveUnidic();
+  if (!dic) { jreadAnalyzer = false; return null; }
   try {
+    ensureMecabOnPath();
     const mod = await import('jreadability');
     jreadAnalyzer = new mod.Analyzer(dic);
     return jreadAnalyzer;

@@ -24,6 +24,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # 文体分析の本家 jReadability スコア用に MeCab+UniDic を取得（約200MB）
+      - name: Setup MeCab + UniDic for readability score
+        run: npm run setup:readability
+
       # npm v11+ はパッケージのインストールスクリプトをブロックするため、
       # Electron本体のバイナリがダウンロードされない。手動で取得する。
       - name: Download Electron binary

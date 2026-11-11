@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# MeCab/UniDicバイナリ・辞書（約200MB・要 setup:readability で再取得）
+tools/
 *.log
 Thumbs.db
 .env

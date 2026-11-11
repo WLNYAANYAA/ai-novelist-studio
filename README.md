@@ -12,6 +12,7 @@ AIのべりすと等のOpenAI互換APIと会話しながら小説を生成・蓄
 - **執筆統計** — 総文字数・目標達成率・本日の執筆ペースをリアルタイム表示
 - **次の一手提案** — 応答完了ごとに次の指示候補を3つ提示（ワンタップ送信・設定でOFF可）
 - **伏線トラッカー** — 伏線カードの未回収/回収済を管理し、AIが「このシーンで回収すべき伏線」を提案
+- **文体分析** — サンプル本文（最大約6000字）から文長・文字種比率・語彙特性など約24項目をAIが評価し、再現用の「文体指示文」をプリセット/カードに保存。jReadabilityによる本家の読みやすさスコアも計測（MeCab+UniDic同梱版は実計測、未導入環境は近似値）
 - **カード＆タグ呼び出し** — `#タグ` で会話中にいつでも注入（`##タグ` は今回のみ）
 - **プロンプト最適化** — 入力中の指示文をAIが推敲してから送信
 
@@ -42,6 +43,21 @@ npm start          # → http://localhost:3737
 npm run desktop    # Electronアプリとして起動
 npm run dist       # Windowsインストーラーをビルド
 ```
+
+### 文体分析の本家スコア（MeCab + UniDic）
+
+ツールメニューの「文体を分析」は、MeCab + UniDic があれば **jReadability の本家スコアを実計測**します。リリース版インストーラーには `tools/`（約200MB）が同梱されるため追加設定は不要です。開発環境やセルフホストで有効化する場合：
+
+```sh
+npm run setup:readability   # MeCab + UniDic を tools/ に自動ダウンロード
+```
+
+あるいは環境変数で独自の辞書を指定できます：
+
+- `JREAD_UNIDIC` — UniDic辞書ディレクトリ（`sys.dic` を含むもの）
+- `PATH` — `mecab` コマンドが見つかるようにする
+
+MeCab/UniDicが無い環境では自動的に近似メトリクスにフォールバックします。
 
 クラウド（スマホ・ChromeOS）で使う場合は [DEPLOY.md](DEPLOY.md) を参照してください。
 
@@ -81,4 +97,5 @@ AI Novelist Studio は、生成AIとの対話を通じて小説を「会話 → 
 ## クレジット
 
 - フロントエンドのMarkdown描画に [marked.js](https://marked.js.org/) / [DOMPurify](https://github.com/cure53/DOMPurify) を使用
+- 文体分析に [jreadability](https://github.com/joshdavham/jreadability)（MeCab + UniDic）を使用。MeCabはトライデュアルライセンス（BSD選択）、UniDicはNINJALのライセンスに基づき同梱
 - AI推論はユーザー自身のAPIキーまたはローカルLLMで実行（本ソフトウェア自体はAIモデルを内蔵しません）

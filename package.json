@@ -9,6 +9,7 @@
     "dev": "node --watch server.js",
     "desktop": "electron .",
     "icon": "node scripts/make-icon.js",
+    "setup:readability": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-readability.ps1",
     "dist": "electron-builder --win"
   },
   "build": {
@@ -23,6 +24,16 @@
       "server.js",
       "public/**",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "tools/",
+        "to": "tools/",
+        "filter": [
+          "mecab-dist/**",
+          "unidic-mecab/**"
+        ]
+      }
     ],
     "win": {
       "target": "nsis",
