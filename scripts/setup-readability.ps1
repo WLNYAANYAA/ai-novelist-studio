@@ -39,7 +39,10 @@ if (-not (Test-Path (Join-Path $unidicDir 'sys.dic'))) {
     Invoke-WebRequest -UseBasicParsing -Uri 'https://clrd.ninjal.ac.jp/unidic_archive/cwj/2.1.1/unidic-mecab-211_windows.zip' -OutFile $zip
     $tmp = Join-Path $env:TEMP 'unidic-extract'
     if (Test-Path $tmp) { Remove-Item $tmp -Recurse -Force }
-    Expand-Archive -Path $zip -DestinationPath $tmp
+    New-Item -ItemType Directory -Path $tmp | Out-Null
+    # tar.exe (bsdtar) は Expand-Archive よりはるかに高速（CIでのタイムアウト対策）
+    & tar.exe -xf $zip -C $tmp
+    if ($LASTEXITCODE -ne 0) { Expand-Archive -Path $zip -DestinationPath $tmp }
     $dicSrc = Join-Path $tmp 'Files\dic\unidic-mecab'
     if (Test-Path $unidicDir) { Remove-Item $unidicDir -Recurse -Force }
     Move-Item $dicSrc $unidicDir
