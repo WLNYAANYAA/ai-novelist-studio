@@ -7,6 +7,7 @@ import { callApiOnce, convTranscript } from './context.js';
 import { addBotMsg, renderBotContent, addBotActions, updateCharCount, mdRender, scrollChat } from './messages.js';
 import { saveConversation, renderConvList } from './conversations.js';
 import { refreshCards } from './cards.js';
+import { msScene } from './manuscript.js';
 
 // ---------- 執筆パイプライン ----------
 const PIPELINE_STEPS = [
@@ -249,4 +250,118 @@ export function showWritingLog() {
   $('resultBody').innerHTML =
     `<p class="hint">直近14日合計: <strong>${total.toLocaleString()}</strong>字 ／ 今月: <strong>${monthTotal.toLocaleString()}</strong>字</p>` + rows;
   $('resultModal').classList.remove('hidden');
+}
+
+// ---------- 文体分析（パラメータ抽出） ----------
+const STYLE_RUBRIC = `あなたは文体分析の専門家です。以下の小説本文サンプルを読み、文体を定量的に分析してください。
+
+【出力形式（この形式のみ。前置き・説明・Markdown装飾は不要）】
+
+【パラメータ】
+1. 平均文長: 全角文字数の平均と傾向
+2. 文長のばらつき: 短文と長文の混ざり方
+3. 一文の最大長の目安
+4. 読点（、）の頻度: おおよその個数/100字
+5. 句点（。）の頻度: おおよその個数/100字
+6. 改行頻度: 段落の平均文字数と改行の入れ方の傾向
+7. 段落の長さ: 一段落あたりの平均文字数
+8. 漢字率: おおよその割合（%）
+9. ひらがな率: おおよその割合（%）
+10. カタカナ率: おおよその割合（%）
+11. 文語/口語のバランス
+12. 敬語の使用頻度と種類
+13. 常体/敬体の区分
+14. 視点: 一人称/三人称/その他
+15. 地の文とセリフの比率
+16. セリフの文末表現の傾向（〜だ・〜である・〜なの等）
+17. 体言止めの使用頻度
+18. 擬音語・擬態語の頻度と種類の傾向
+19. 語彙の多様性: 同じ言葉の繰り返し具合
+20. 語彙レベル: やさしい/標準/硬い/文学的
+21. 比喩・装飾表現の頻度
+22. 全体のテンポ感: 速い/標準/ゆったり
+23. 会話文の特徴: タグの有無・心の声の表現方法
+24. 避けるべき要素: この文体に合わない表現
+
+【文体指示文】
+（上記分析を踏まえ、この文体をAIが再現できるよう、具体的な指示文を日本語で6〜10文。文長・リズム・語彙・改行・セリフの扱いなどを明確に指示すること）`;
+
+let styleDirective = '';
+let styleFullText = '';
+
+export function openStyleAnalyzer() {
+  $('styleModal').classList.remove('hidden');
+  if (!$('styleSample').value) {
+    const sc = msScene();
+    if (sc?.content) $('styleSample').value = sc.content.slice(0, 5000);
+  }
+  $('styleResult').innerHTML = '';
+  $('btnStyleSavePreset').classList.add('hidden');
+  $('btnStyleSaveCard').classList.add('hidden');
+  $('styleStatus').textContent = '';
+}
+
+export function fillStyleSample(from) {
+  let text = '';
+  if (from === 'scene') text = msScene()?.content || '';
+  else {
+    if (!current) { appAlert('会話を開いてください'); return; }
+    for (let i = current.messages.length - 1; i >= 0; i--) {
+      if (current.messages[i].role === 'assistant') { text = current.messages[i].content || ''; break; }
+    }
+  }
+  if (!text.trim()) { appAlert('読み込める本文がありません'); return; }
+  $('styleSample').value = text.slice(0, 5000);
+}
+
+export async function runStyleAnalysis() {
+  const sample = ($('styleSample').value || '').trim();
+  if (!sample) { appAlert('サンプル本文を入力してください'); return; }
+  if (apiWarnMissing()) return;
+  const btn = $('btnStyleAnalyze');
+  btn.disabled = true;
+  $('styleStatus').textContent = '分析中…（APIを1回呼び出します）';
+  $('styleResult').innerHTML = '';
+  try {
+    const { text } = await callApiOnce([
+      { role: 'system', content: STYLE_RUBRIC },
+      { role: 'user', content: sample.slice(0, 6000) }
+    ]);
+    styleFullText = (text || '').trim();
+    const m = styleFullText.match(/【文体指示文】\s*([\s\S]*)$/);
+    styleDirective = m ? m[1].trim() : '';
+    const paramsPart = m ? styleFullText.slice(0, m.index).trim() : styleFullText;
+    $('styleResult').innerHTML =
+      `<div class="hint" style="margin-bottom:6px">【文体指示文】（プリセット/カードに保存される内容）</div>` +
+      `<div class="history-content" style="max-height:180px;margin-bottom:10px">${esc(styleDirective || styleFullText)}</div>` +
+      `<details><summary class="hint" style="cursor:pointer">パラメータ詳細（${(paramsPart.match(/\n\d+\./g) || []).length || '?'}項目）</summary>` +
+      `<div class="history-content" style="max-height:260px;margin-top:6px;white-space:pre-wrap">${esc(paramsPart)}</div></details>`;
+    $('btnStyleSavePreset').classList.remove('hidden');
+    $('btnStyleSaveCard').classList.remove('hidden');
+    $('styleStatus').textContent = '';
+  } catch (e) {
+    $('styleStatus').textContent = '';
+    appAlert('分析に失敗しました: ' + (e.message || e));
+  } finally { btn.disabled = false; }
+}
+
+export async function saveStyleAnalysisAsPreset() {
+  if (!styleDirective && !styleFullText) return;
+  await saveStyle(styleDirective || styleFullText);
+}
+
+export async function saveStyleAnalysisAsCard() {
+  if (!styleDirective && !styleFullText) return;
+  const name = await appPrompt('カード名を入力', '文体プロファイル');
+  if (name === null) return;
+  await api('/api/cards', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: name.trim() || '文体プロファイル',
+      kind: 'style',
+      content: (styleDirective ? '【文体指示文】\n' + styleDirective + '\n\n' : '') + '【分析パラメータ】\n' + styleFullText.slice(0, 8000)
+    })
+  });
+  await refreshCards();
+  appAlert('カードに追加しました。「この会話で使うカード」から選択すると文体指入文が注入されます');
 }

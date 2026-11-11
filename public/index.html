@@ -128,6 +128,7 @@
             <button class="menu-item" id="btnScene"><svg class="icon"><use href="#i-columns"/></svg> シーン区切りを挿入</button>
             <button class="menu-item" id="btnParams"><svg class="icon"><use href="#i-gear"/></svg> この会話の設定</button>
             <button class="menu-item" id="btnOutline"><svg class="icon"><use href="#i-list"/></svg> 目次（章・シーン構成）</button>
+            <button class="menu-item" id="miStyleAnalyze"><svg class="icon"><use href="#i-sparkle"/></svg> 文体を分析（パラメータ抽出）</button>
             <button class="menu-item qb" id="qbPin">最前列に固定</button>
             <button class="menu-item" id="btnMacros">クイックマクロ（ホットキー）</button>
             <div class="menu-sep"></div>
@@ -489,6 +490,7 @@
           <option value="world">世界観</option>
           <option value="term">用語・設定</option>
           <option value="foreshadow">伏線</option>
+          <option value="style">文体</option>
         </select>
         <label style="flex-direction:row;align-items:center;gap:6px;font-size:12px"><input type="checkbox" id="cResolved"> 回収済み</label>
         <input type="text" id="cTriggers" placeholder="自動注入キーワード（カンマ区切り・本文に出たら自動注入。例: アリス, 銀の鍵, 魔王城）">
@@ -614,6 +616,31 @@
   </div>
 </div>
 
+<!-- 文体分析モーダル -->
+<div id="styleModal" class="modal hidden">
+  <div class="modal-content" style="width:min(680px,92vw)">
+    <div class="modal-header">
+      <h2><svg class="icon"><use href="#i-sparkle"/></svg> 文体分析（パラメータ抽出）</h2>
+      <button class="modal-close" id="btnCloseStyle"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p class="hint">分析したい文体のサンプル本文を貼り付けてください（目安5000文字・短くても可）。AIが約22項目の文体パラメータを評価し、再現用の「文体指示文」を生成します。</p>
+      <textarea id="styleSample" rows="9" placeholder="ここにサンプル本文を貼り付け"></textarea>
+      <div class="params-row">
+        <button id="btnStyleFromScene" class="btn-ghost btn-sm" type="button">原稿の選択シーンを読み込む</button>
+        <button id="btnStyleFromLast" class="btn-ghost btn-sm" type="button">直近のAI応答を読み込む</button>
+      </div>
+      <div id="styleResult"></div>
+    </div>
+    <div class="modal-footer">
+      <button id="btnStyleAnalyze" class="btn-primary">分析する</button>
+      <button id="btnStyleSavePreset" class="btn-ghost hidden">文体プリセットに保存</button>
+      <button id="btnStyleSaveCard" class="btn-ghost hidden">カードに追加</button>
+      <span class="hint" id="styleStatus"></span>
+    </div>
+  </div>
+</div>
+
 <!-- 履歴モーダル -->
 <div id="historyModal" class="modal hidden">
   <div class="modal-content">
@@ -627,6 +654,6 @@
 
 <script src="/js/marked.min.js?v=22"></script>
 <script src="/js/purify.min.js?v=22"></script>
-<script type="module" src="/js/app.js?v=28"></script>
+<script type="module" src="/js/app.js?v=29"></script>
 </body>
 </html>

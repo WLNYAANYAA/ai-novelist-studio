@@ -33,7 +33,7 @@ export const STYLE_PRESETS = {
   'horror': 'ホラー・ミステリー小説のように、緊張感と陰影のある文体で書いてください。',
   'bungei': '文芸小説のように詩的で装飾的な文体で書いてください。'
 };
-export const CARD_KINDS = { character: 'キャラ', world: '世界観', term: '用語', foreshadow: '伏線' };
+export const CARD_KINDS = { character: 'キャラ', world: '世界観', term: '用語', foreshadow: '伏線', style: '文体' };
 
 // お楽しみ機能・細かい設定（localStorage）
 export const fun = {

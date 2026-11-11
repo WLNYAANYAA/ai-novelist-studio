@@ -11,7 +11,7 @@ import { compressContext } from './context.js';
 import { updateTagSug, hideTagSug, tagSugKey } from './tags.js';
 import { openSettings, saveSettings, updateModelHint, PROVIDER_URLS, openTplModal, saveTpl, resetTplForm, deleteTpl, optimizePrompt, renderPresetMenu, syncPresetState, savePreset } from './settings.js';
 import { openCardsModal, openCardPicker, saveCard, resetCardForm, deleteCard, saveCardPick } from './cards.js';
-import { runPipeline, genVariants, analyzeEmotion, collectTerms, extractStyle, showWritingLog, refreshStyleOptions } from './ai-tools.js';
+import { runPipeline, genVariants, analyzeEmotion, collectTerms, extractStyle, showWritingLog, refreshStyleOptions, openStyleAnalyzer, fillStyleSample, runStyleAnalysis, saveStyleAnalysisAsPreset, saveStyleAnalysisAsCard } from './ai-tools.js';
 import { togglePin, toggleTimer, toggleBgm, toggleEars, setAiName, toggleVoice, toggleNeko, toggleSakura, toggleInfinite, onMoodChange, moodUp, cycleTheme, applyTheme, updateAiNameTag, syncFunButtons, updateTimerDisplay, restorePin, initSelectionPopup, renderQuickReplies, addQuickReply, toggleWritingMode, showOutline, openHistoryModal, toggleSidebar } from './features.js';
 import { openMacroModal, armMacroRec, saveMacro, resetMacroForm, macroRecArmed, macros, comboFromEvent, runMacro, fireHotkey, syncGlobalHotkeys } from './macros.js';
 
@@ -152,6 +152,13 @@ function bindUI() {
   $('btnChapter').onclick = insertChapterDivider;
   $('btnCompress').onclick = compressContext;
   $('btnOutline').onclick = showOutline;
+  $('miStyleAnalyze').onclick = openStyleAnalyzer;
+  $('btnCloseStyle').onclick = () => $('styleModal').classList.add('hidden');
+  $('btnStyleFromScene').onclick = () => fillStyleSample('scene');
+  $('btnStyleFromLast').onclick = () => fillStyleSample('last');
+  $('btnStyleAnalyze').onclick = runStyleAnalysis;
+  $('btnStyleSavePreset').onclick = saveStyleAnalysisAsPreset;
+  $('btnStyleSaveCard').onclick = saveStyleAnalysisAsCard;
   $('btnQuickReplyAdd').onclick = addQuickReply;
   $('qbPipeline').onclick = runPipeline;
   $('qbVariants').onclick = () => genVariants(3);
