@@ -208,6 +208,79 @@ app.get('/api/version', (req, res) => {
   } catch { res.json({ name: 'AI Novelist Studio', version: '' }); }
 });
 
+// ---------- Readability（jReadability: MeCab+UniDicがあれば実計測、なければ近似） ----------
+let jreadAnalyzer = null, jreadChecked = false;
+async function getJreadAnalyzer() {
+  if (jreadChecked) return jreadAnalyzer;
+  jreadChecked = true;
+  const dic = process.env.JREAD_UNIDIC;
+  if (!dic || !fs.existsSync(dic)) { jreadAnalyzer = false; return null; }
+  try {
+    const mod = await import('jreadability');
+    jreadAnalyzer = new mod.Analyzer(dic);
+    return jreadAnalyzer;
+  } catch (e) {
+    console.warn('jreadability初期化失敗（mecab/UniDic要確認）:', e.message);
+    jreadAnalyzer = false;
+    return null;
+  }
+}
+
+// 形態素解析なしの近似メトリクス（jReadability式スコアの代理計算）
+function approxMetrics(text) {
+  const sents = String(text).split(/(?<=[。！？!?])/).map(s => s.trim()).filter(Boolean);
+  const chars = [...String(text)].length;
+  const count = re => (String(text).match(re) || []).length;
+  const kanji = count(/[一-龯々〆ヵヶ]/g);
+  const hira = count(/[ぁ-ん]/g);
+  const kata = count(/[ァ-ヶー]/g);
+  const kangoRuns = count(/[一-龯々〆ヵヶ]+/g);
+  const wagoRuns = count(/[ぁ-んー]+/g);
+  const kataRuns = count(/[ァ-ヶー]+/g);
+  const numRuns = count(/[A-Za-z0-9０-９]+/g);
+  const tokens = kangoRuns + wagoRuns + kataRuns + numRuns;
+  const lens = sents.map(s => [...s].length);
+  const avg = lens.length ? lens.reduce((a, b) => a + b, 0) / lens.length : 0;
+  const variance = lens.length ? lens.reduce((a, b) => a + (b - avg) * (b - avg), 0) / lens.length : 0;
+  const kangoPct = tokens ? 100 * kangoRuns / tokens : 0;
+  const wagoPct = tokens ? 100 * wagoRuns / tokens : 0;
+  // 動詞・助詞割合は形態素解析なしでは推定不可のため、実測値の半分程度を仮定した近似スコア
+  const score = +(11.724 - 0.056 * avg - 0.126 * kangoPct - 0.042 * wagoPct - 0.145 * 15 - 0.044 * 20).toFixed(2);
+  return {
+    approx: true,
+    score,
+    metrics: {
+      sentences: sents.length,
+      chars,
+      avgSentenceLen: +avg.toFixed(1),
+      sentenceLenStd: +Math.sqrt(variance).toFixed(1),
+      kanjiPct: +(100 * kanji / Math.max(chars, 1)).toFixed(1),
+      hiraganaPct: +(100 * hira / Math.max(chars, 1)).toFixed(1),
+      katakanaPct: +(100 * kata / Math.max(chars, 1)).toFixed(1),
+      commaPer100: +(100 * count(/、/g) / Math.max(chars, 1)).toFixed(2),
+      periodPer100: +(100 * count(/。/g) / Math.max(chars, 1)).toFixed(2),
+      newlinePer100: +(100 * count(/\n/g) / Math.max(chars, 1)).toFixed(2),
+      kangoTokenPct: +kangoPct.toFixed(1),
+      wagoTokenPct: +wagoPct.toFixed(1)
+    }
+  };
+}
+
+app.post('/api/readability', async (req, res) => {
+  const text = String(req.body?.text || '').slice(0, 20000);
+  if (!text.trim()) return res.status(400).json({ error: 'textが空です' });
+  const analyzer = await getJreadAnalyzer();
+  if (analyzer) {
+    try {
+      const score = await analyzer.analyze(text);
+      return res.json({ approx: false, score: +score.toFixed(2), metrics: approxMetrics(text).metrics });
+    } catch (e) {
+      console.warn('jreadability解析失敗、近似にフォールバック:', e.message);
+    }
+  }
+  res.json(approxMetrics(text));
+});
+
 // ---------- Config ----------
 app.get('/api/config', (req, res) => {
   res.json({

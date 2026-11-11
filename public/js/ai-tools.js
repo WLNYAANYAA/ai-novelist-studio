@@ -322,16 +322,27 @@ export async function runStyleAnalysis() {
   btn.disabled = true;
   $('styleStatus').textContent = '分析中…（APIを1回呼び出します）';
   $('styleResult').innerHTML = '';
+  // 機械計測（jReadability: MeCab+UniDicがあれば実計測、なければ近似）
+  let metricsBlock = '', metricsNote = '';
+  try {
+    const r = await api('/api/readability', { method: 'POST', body: JSON.stringify({ text: sample.slice(0, 20000) }) });
+    if (r?.metrics) {
+      const m = r.metrics;
+      metricsBlock = `<div class="hint" style="margin-bottom:6px">【機械計測（jReadability${r.approx ? '・近似' : ''}）】読みやすさスコア: <strong>${r.score ?? '—'}</strong>（高いほど易しい文体）</div>` +
+        `<div class="history-content" style="max-height:140px;margin-bottom:10px">文数 ${m.sentences} · 平均文長 ${m.avgSentenceLen}字 · 文長のばらつきσ${m.sentLenStd} · 漢字率 ${m.kanjiPct}% · ひらがな ${m.hiraganaPct}% · カタカナ ${m.katakanaPct}% · 読点 ${m.commaPer100}/100字 · 句点 ${m.periodPer100}/100字 · 改行 ${m.newlinePer100}/100字 · 漢語系 ${m.kangoTokenPct}% / 和語系 ${m.wagoTokenPct}%</div>`;
+      metricsNote = '\n\n【機械計測値（参考データ。この値を踏まえて評価すること）】\n' + JSON.stringify(m) + (r.approx ? '（形態素解析なしの近似値）' : '');
+    }
+  } catch {}
   try {
     const { text } = await callApiOnce([
       { role: 'system', content: STYLE_RUBRIC },
-      { role: 'user', content: sample.slice(0, 6000) }
+      { role: 'user', content: sample.slice(0, 6000) + metricsNote }
     ]);
     styleFullText = (text || '').trim();
     const m = styleFullText.match(/【文体指示文】\s*([\s\S]*)$/);
     styleDirective = m ? m[1].trim() : '';
     const paramsPart = m ? styleFullText.slice(0, m.index).trim() : styleFullText;
-    $('styleResult').innerHTML =
+    $('styleResult').innerHTML = metricsBlock +
       `<div class="hint" style="margin-bottom:6px">【文体指示文】（プリセット/カードに保存される内容）</div>` +
       `<div class="history-content" style="max-height:180px;margin-bottom:10px">${esc(styleDirective || styleFullText)}</div>` +
       `<details><summary class="hint" style="cursor:pointer">パラメータ詳細（${(paramsPart.match(/\n\d+\./g) || []).length || '?'}項目）</summary>` +

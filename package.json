@@ -42,7 +42,8 @@
     "node": ">=22.13"
   },
   "dependencies": {
-    "express": "^5.3.0"
+    "express": "^5.3.0",
+    "jreadability": "^1.0.2"
   },
   "devDependencies": {
     "electron": "^45.2.3",
