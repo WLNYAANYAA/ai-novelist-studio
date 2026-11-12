@@ -45,11 +45,11 @@ function makeGhostWidget(text) {
   return span;
 }
 
-function WriterAssist(opts) {
+function WriterAssist(opts = {}) {
   return Extension.create({
     name: 'writerAssist',
     addOptions() {
-      return { getNames: () => [], onSuggest: null };
+      return { getNames: () => [], onSuggest: null, ...opts };
     },
     addProseMirrorPlugins() {
       const o = this.options;
@@ -133,7 +133,7 @@ function createEditor(el, { content = '', placeholder = '', onUpdate = null, get
       Placeholder.configure({ placeholder }),
       Ruby,
       EmphasisDots,
-      WriterAssist.configure({ getNames: getNames || (() => []), onSuggest })
+      WriterAssist({ getNames: getNames || (() => []), onSuggest })
     ],
     content,
     onUpdate: ({ editor }) => { if (onUpdate) onUpdate(editor); }

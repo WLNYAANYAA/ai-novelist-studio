@@ -872,7 +872,8 @@ body.cat-ears #convTitle::after { left: 26px; transform: rotate(14deg); }
 }
 .ms-title { font-weight: 700; font-size: 14px; }
 .ms-actions { display: flex; gap: 6px; }
-.ms-toolbar { display: flex; gap: 6px; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+.ms-toolbar { display: flex; gap: 6px; padding: 8px 14px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.ms-toolbar .btn-ghost.btn-sm { white-space: nowrap; }
 .ms-stats-row {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   padding: 8px 14px; border-bottom: 1px solid var(--border);
