@@ -106,6 +106,9 @@ export async function openDocument(id) {
   renderDocList();
 }
 
+// 検索結果からのジャンプ用
+window.__openDocument = (id) => openDocument(id);
+
 export async function newDocument() {
   const name = await appPrompt('ドキュメント名を入力（空欄で「無題」）', '');
   const title = (name || '').trim() || '無題';
@@ -216,6 +219,16 @@ async function execDocCmd(cmd) {
       break;
     }
     case 'unlink': chain.extendMarkRange('link').unsetLink().run(); break;
+    case 'ruby': {
+      const prev = editor.getAttributes('ruby').reading || '';
+      const reading = await appPrompt('ルビ（読み）を入力（空欄で解除）', prev);
+      if (reading === null) break;
+      const r = reading.trim();
+      if (!r) chain.extendMarkRange('ruby').unsetRuby().run();
+      else chain.extendMarkRange('ruby').setRuby({ reading: r }).run();
+      break;
+    }
+    case 'emphasisDots': chain.toggleEmphasisDots().run(); break;
     case 'undo': chain.undo().run(); break;
     case 'redo': chain.redo().run(); break;
   }
@@ -228,7 +241,8 @@ const TB_STATE = [
   ['paragraph', 'paragraph'],
   ['bulletList', 'bulletList'], ['orderedList', 'orderedList'],
   ['blockquote', 'blockquote'], ['codeBlock', 'codeBlock'],
-  ['link', 'link']
+  ['link', 'link'],
+  ['ruby', 'ruby'], ['emphasisDots', 'emphasisDots']
 ];
 function updateToolbarState() {
   if (!editor) return;

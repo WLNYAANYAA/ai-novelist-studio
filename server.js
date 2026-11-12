@@ -420,6 +420,7 @@ app.post('/api/conversations', (req, res) => {
       ...(b.profile && typeof b.profile === 'object' ? b.profile : {})
     },
     cardIds: Array.isArray(b.cardIds) ? b.cardIds : [],
+    sceneId: typeof b.sceneId === 'string' ? b.sceneId.slice(0, 60) : '',
     totalTokens: b.totalTokens || { input: 0, output: 0 }
   };
   writeDoc('conv', id, conversations[id]);
@@ -443,6 +444,7 @@ app.put('/api/conversations/:id', (req, res) => {
   if (Array.isArray(b.messages)) c.messages = b.messages;
   if (b.profile && typeof b.profile === 'object') c.profile = { ...c.profile, ...b.profile };
   if (Array.isArray(b.cardIds)) c.cardIds = b.cardIds;
+  if (typeof b.sceneId === 'string') c.sceneId = b.sceneId.slice(0, 60);
   if (Array.isArray(b.snapshots)) {
     if (b.snapshots.length || docExists('snapshot', req.params.id)) {
       writeDoc('snapshot', req.params.id, b.snapshots.slice(-100));
@@ -485,14 +487,42 @@ app.get('/api/search', (req, res) => {
         if (idx >= 0) {
           const raw = m.content;
           const snippet = raw.slice(Math.max(0, idx - 40), idx + q.length + 60).replace(/\n/g, ' ');
-          results.push({ id: c.id, title: c.title, updated: c.updated, matchType: m.role, messageIndex: i, snippet });
+          results.push({ id: c.id, kind: 'conv', title: c.title, updated: c.updated, matchType: m.role, messageIndex: i, snippet });
           break; // 1会話につき最初のヒットのみ
         }
       }
     }
   }
-  results.sort((a, b) => b.updated - a.updated);
-  res.json(results.slice(0, 50));
+  const stripHtml = (h) => String(h || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  const mkSnippet = (raw, idx) => raw.slice(Math.max(0, idx - 40), idx + q.length + 60).replace(/\n/g, ' ');
+  // ドキュメント（リッチテキスト）
+  for (const d of Object.values(documents)) {
+    const text = stripHtml(d.content || '');
+    const idx = text.toLowerCase().indexOf(q);
+    if (idx >= 0) {
+      results.push({ id: d.id, kind: 'doc', title: d.title || '無題', updated: d.updated, matchType: 'document', snippet: mkSnippet(text, idx) });
+    }
+  }
+  // ソース（参照資料）
+  for (const s of Object.values(sources)) {
+    const text = String(s.content || '');
+    const idx = text.toLowerCase().indexOf(q);
+    if (idx >= 0) {
+      results.push({ id: s.id, kind: 'source', title: s.name || '無題', updated: s.updated, matchType: 'source', snippet: mkSnippet(text, idx) });
+    }
+  }
+  // 原稿シーン
+  for (const ch of (manuscript?.chapters || [])) {
+    for (const sc of (ch.scenes || [])) {
+      const text = String(sc.content || '');
+      const idx = text.toLowerCase().indexOf(q);
+      if (idx >= 0) {
+        results.push({ id: sc.id, kind: 'scene', title: `${ch.title} / ${sc.title}`, updated: manuscript.updated || 0, matchType: 'manuscript', snippet: mkSnippet(text, idx) });
+      }
+    }
+  }
+  results.sort((a, b) => (b.updated || 0) - (a.updated || 0));
+  res.json(results.slice(0, 80));
 });
 
 // ---------- Cards / Templates ----------

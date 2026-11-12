@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>AI Novelist Studio</title>
-<link rel="stylesheet" href="/css/style.css?v=29">
+<link rel="stylesheet" href="/css/style.css?v=30">
 </head>
 <body>
 <script>document.documentElement.dataset.sidebar = localStorage.getItem('sidebar_collapsed') === '1' ? 'collapsed' : '';</script>
@@ -192,6 +192,11 @@
             <select id="pProject"><option value="">（なし）</option><option value="__new">＋新しいプロジェクト…</option></select>
           </label>
         </div>
+        <div class="params-row">
+          <label style="flex:1" title="原稿のシーンに紐付けると、そのシーンの本文末尾がAIの文脈に入り、「原稿」追加もそのシーンに行われます">対象シーン（原稿と連動）
+            <select id="pScene"><option value="">（なし）</option></select>
+          </label>
+        </div>
         <div class="params-row" title="プロジェクトプリセット：カード選択・ソース参照・文体プリセットをプロジェクト単位で保存し、会話に一括適用できます">
           <span id="presetStatus" class="hint" style="flex:1"></span>
           <label class="hint" style="display:flex;align-items:center;gap:4px;white-space:nowrap"><input type="checkbox" id="pPresetAuto"> 自動適用</label>
@@ -314,6 +319,9 @@
           <button type="button" data-cmd="link" title="リンク">リンク</button>
           <button type="button" data-cmd="unlink" title="リンク解除">解除</button>
           <span class="doc-tb-sep"></span>
+          <button type="button" data-cmd="ruby" title="ルビ（ふりがな）を付ける">ルビ</button>
+          <button type="button" data-cmd="emphasisDots" title="傍点（圏点）を付ける">傍点</button>
+          <span class="doc-tb-sep"></span>
           <button type="button" data-cmd="undo" title="元に戻す">↶</button>
           <button type="button" data-cmd="redo" title="やり直し">↷</button>
         </div>
@@ -348,7 +356,10 @@
           <button id="btnMsDel" class="btn-ghost btn-sm">削除</button>
           <button id="btnMsForeshadow" class="btn-ghost btn-sm">伏線チェック</button>
           <button id="btnMsWrite" class="btn-ghost btn-sm">AI執筆</button>
+          <button id="btnMsAiParts" class="btn-ghost btn-sm">AI部分</button>
           <button id="btnMsChart" class="btn-ghost btn-sm">グラフ</button>
+          <button id="btnMsBoard" class="btn-ghost btn-sm">ボード</button>
+          <button id="btnMsVertical" class="btn-ghost btn-sm" title="原稿エディタを縦書き表示に切替">縦書</button>
         </div>
         <div class="ms-stats-row">
           <div class="ms-stats-info">
@@ -357,6 +368,7 @@
           </div>
           <label class="ms-goal-wrap" title="目標文字数（達成率と進捗バーに反映）">目標<input id="msGoal" type="number" min="0" step="1000" placeholder="—"></label>
         </div>
+        <div id="msBoard" class="hidden"></div>
         <div id="msTree"></div>
         <div class="ms-editor">
           <input id="msSceneTitle" placeholder="シーン名">
@@ -736,7 +748,7 @@
   </div>
 </div>
 
-<script src="/js/editor.bundle.js?v=2"></script>
+<script src="/js/editor.bundle.js?v=3"></script>
 <script src="/js/marked.min.js?v=22"></script>
 <script src="/js/purify.min.js?v=22"></script>
 <script type="module" src="/js/app.js?v=36"></script>

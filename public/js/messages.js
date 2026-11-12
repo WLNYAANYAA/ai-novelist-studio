@@ -199,8 +199,8 @@ export function addBotActions(el, msgObj, msgIndex) {
   mk('指示', 'edit', () => instructFrom(msgObj), 'AIに修正・追加の指示を出す');
   mk('ここからやり直し', 'refresh', () => rewindTo(msgObj, el), 'この応答と以降を削除して再生成');
   mk('読み上げ', 'volume', () => toggleSpeak(msgObj.content), 'この応答を音声で読み上げ');
-  mk('原稿', 'book', () => adoptToManuscript(msgObj.content), 'この応答を原稿ペインに追加');
-  mk('原稿:新シーン', 'book', () => adoptToManuscript(msgObj.content, { newScene: true }), '新しいシーンを作ってこの応答を追加');
+  mk('原稿', 'book', () => adoptToManuscript(msgObj.content, { src: 'ai' }), 'この応答を原稿ペインに追加');
+  mk('原稿:新シーン', 'book', () => adoptToManuscript(msgObj.content, { newScene: true, src: 'ai' }), '新しいシーンを作ってこの応答を追加');
   mk('ドキュメント', 'edit', () => sendTextToDocument(msgObj.content), 'リッチテキストドキュメントに送る（同名なら追記）');
   if (msgObj._summary) {
     mk('メモに追加', 'card', () => appendToMemo(msgObj.content), 'このあらすじを文脈メモに追加');

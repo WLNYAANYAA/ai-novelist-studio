@@ -1,5 +1,5 @@
 // リッチテキストエディタ（TipTap）のエントリ。esbuildで public/js/editor.bundle.js にバンドルする
-import { Editor, Extension } from '@tiptap/core';
+import { Editor, Extension, Mark } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import StarterKit from '@tiptap/starter-kit';
@@ -95,6 +95,31 @@ function WriterAssist(opts) {
   });
 }
 
+// ---------- 日本語組版マーク：ルビ・傍点 ----------
+const Ruby = Mark.create({
+  name: 'ruby',
+  addAttributes() {
+    return { reading: { default: '' } };
+  },
+  parseHTML() {
+    return [{ tag: 'ruby', contentElement: 'rb' }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    const { reading, ...rest } = HTMLAttributes;
+    return ['ruby', rest, ['rb', {}, 0], ['rt', {}, reading || '']];
+  }
+});
+
+const EmphasisDots = Mark.create({
+  name: 'emphasisDots',
+  parseHTML() {
+    return [{ tag: 'span.emphasis-dots' }];
+  },
+  renderHTML() {
+    return ['span', { class: 'emphasis-dots' }, 0];
+  }
+});
+
 function createEditor(el, { content = '', placeholder = '', onUpdate = null, getNames = null, onSuggest = null } = {}) {
   const editor = new Editor({
     element: el,
@@ -106,6 +131,8 @@ function createEditor(el, { content = '', placeholder = '', onUpdate = null, get
       Underline,
       Link.configure({ openOnClick: false, autolink: true, linkOnPaste: true, HTMLAttributes: { rel: 'noopener noreferrer' } }),
       Placeholder.configure({ placeholder }),
+      Ruby,
+      EmphasisDots,
       WriterAssist.configure({ getNames: getNames || (() => []), onSuggest })
     ],
     content,

@@ -1,6 +1,6 @@
 // ---------- Manuscript（原稿ペイン） ----------
 import { $ } from './dom.js';
-import { api, appPrompt, appConfirm, appAlert, appDialog, downloadFile, showResultModal } from './util.js';
+import { api, appPrompt, appConfirm, appAlert, appDialog, downloadFile, showResultModal, esc } from './util.js';
 import { allCards, current, config } from './state.js';
 import { callApiOnce } from './context.js';
 import { Chart, registerables } from './vendor.bundle.js';
@@ -114,6 +114,50 @@ export function msScene() {
   const ch = msChapter();
   return ch ? ch.scenes.find(s => s.id === msSel.sceneId) : null;
 }
+
+// ---------- シーン一覧・シーン紐付け ----------
+export function listManuscriptScenes() {
+  const out = [];
+  for (const ch of manuscript.chapters) {
+    for (const sc of ch.scenes) {
+      out.push({ id: sc.id, title: sc.title, chapter: ch.title, content: sc.content || '' });
+    }
+  }
+  return out;
+}
+// 会話に紐付いたシーン（current.sceneId）を解決
+export function resolveLinkedScene() {
+  const sid = current?.sceneId;
+  if (!sid) return null;
+  for (const ch of manuscript.chapters) {
+    const sc = ch.scenes.find(s => s.id === sid);
+    if (sc) return { scene: sc, chapter: ch };
+  }
+  return null;
+}
+// システムプロンプト用：紐付きシーンの情報（末尾1200字）
+export function linkedSceneContext() {
+  const r = resolveLinkedScene();
+  if (!r) return null;
+  const tail = (r.scene.content || '').trim().slice(-1200);
+  return { chapterTitle: r.chapter.title, title: r.scene.title, tail };
+}
+// 検索結果からのジャンプ用：シーンを選択して原稿ペインを開く
+window.__openScene = (sceneId) => {
+  for (const ch of manuscript.chapters) {
+    if (ch.scenes.some(s => s.id === sceneId)) {
+      msSel.chapterId = ch.id; msSel.sceneId = sceneId;
+      renderMsTree(); updateMsEditor();
+      $('manuscriptPane')?.classList.remove('hidden');
+      $('qbManuscript')?.classList.add('active');
+      return true;
+    }
+  }
+  return false;
+};
+
+// プロファイルパネルの選択肢生成用（循環import回避でwindow経由）
+window.__msScenes = () => listManuscriptScenes().map(s => ({ id: s.id, label: `${s.chapter} / ${s.title}` }));
 function renderMsTree() {
   const el = $('msTree');
   if (!el) return;
@@ -139,6 +183,13 @@ function renderMsTree() {
       const cnt = document.createElement('span');
       cnt.className = 'ms-count';
       cnt.textContent = sc.content ? `${sc.content.length}字` : '';
+      if (sc.aiSnippets?.length) {
+        const badge = document.createElement('span');
+        badge.className = 'ms-ai-badge';
+        badge.textContent = 'AI';
+        badge.title = `AI生成テキスト ${sc.aiSnippets.length}件`;
+        scEl.appendChild(badge);
+      }
       scEl.appendChild(document.createTextNode(sc.title));
       scEl.appendChild(cnt);
       scEl.onclick = () => { msSel.chapterId = ch.id; msSel.sceneId = sc.id; renderMsTree(); updateMsEditor(); };
@@ -181,12 +232,32 @@ export function toggleManuscriptPane() {
   pane.classList.toggle('hidden');
   $('qbManuscript')?.classList.toggle('active', !pane.classList.contains('hidden'));
 }
+
+// ---------- 縦書きプレビュー ----------
+export function toggleMsVertical() {
+  const pane = $('manuscriptPane');
+  const on = pane.classList.toggle('ms-vertical');
+  localStorage.setItem('ms_vertical', on ? '1' : '0');
+  $('btnMsVertical')?.classList.toggle('active', on);
+}
+export function restoreMsVertical() {
+  if (localStorage.getItem('ms_vertical') === '1') {
+    $('manuscriptPane')?.classList.add('ms-vertical');
+    $('btnMsVertical')?.classList.add('active');
+  }
+}
 export function adoptToManuscript(text, opts = {}) {
   const { openPane = true, newScene = false } = opts;
   const t = (text || '').trim();
   if (!t) return;
   if (!manuscript.chapters.length) {
     manuscript.chapters.push({ id: msUid(), title: '第1章', scenes: [] });
+  }
+  // 会話に対象シーンが紐付いていればそこへ追加（選択も同期）
+  const linked = resolveLinkedScene();
+  if (linked) {
+    msSel.chapterId = linked.chapter.id;
+    msSel.sceneId = linked.scene.id;
   }
   let ch = msChapter() || manuscript.chapters[0];
   msSel.chapterId = ch.id;
@@ -197,6 +268,7 @@ export function adoptToManuscript(text, opts = {}) {
   }
   const sc = msScene();
   sc.content = (sc.content ? sc.content.replace(/\s+$/, '') + '\n\n' : '') + t;
+  if (opts.src === 'ai') recordAiSnippet(sc, t);
   renderMsTree();
   updateMsEditor();
   scheduleMsSave();
@@ -206,6 +278,13 @@ export function adoptToManuscript(text, opts = {}) {
   }
   $('msStatus').textContent = `「${sc.title}」に追加しました`;
   setTimeout(() => { if ($('msStatus').textContent.startsWith('「')) $('msStatus').textContent = ''; }, 2500);
+}
+
+// ---------- AI挿入テキストの記録（出所追跡） ----------
+function recordAiSnippet(sc, text) {
+  sc.aiSnippets = sc.aiSnippets || [];
+  sc.aiSnippets.push({ ts: Date.now(), text: text.slice(0, 20000) });
+  if (sc.aiSnippets.length > 50) sc.aiSnippets = sc.aiSnippets.slice(-50);
 }
 
 // ---------- シーンをAIに書かせる ----------
@@ -260,6 +339,7 @@ export async function msAiWrite() {
     sc.content = hasContent
       ? (sc.content || '').replace(/\s+$/, '') + '\n\n' + add
       : add;
+    recordAiSnippet(sc, add);
     renderMsTree();
     updateMsEditor();
     scheduleMsSave();
@@ -304,6 +384,79 @@ export async function msDelete() {
   } else return;
   renderMsTree(); updateMsEditor(); scheduleMsSave();
 }
+// ---------- Plan view（章・シーンのカードボード） ----------
+export function toggleMsBoard() {
+  const el = $('msBoard');
+  if (!el) return;
+  const show = el.classList.contains('hidden');
+  if (show) renderMsBoard();
+  el.classList.toggle('hidden', !show);
+  $('btnMsBoard')?.classList.toggle('active', show);
+}
+function renderMsBoard() {
+  const el = $('msBoard');
+  el.innerHTML = '';
+  if (!manuscript.chapters.length) {
+    el.innerHTML = '<p class="hint" style="padding:8px">まだ章がありません</p>';
+    return;
+  }
+  for (const ch of manuscript.chapters) {
+    const head = document.createElement('div');
+    head.className = 'ms-board-ch';
+    head.textContent = ch.title;
+    el.appendChild(head);
+    const grid = document.createElement('div');
+    grid.className = 'ms-board-grid';
+    for (const sc of ch.scenes) {
+      const card = document.createElement('div');
+      card.className = 'ms-scene-card' + (sc.id === msSel.sceneId ? ' sel' : '');
+      const first = (sc.content || '').replace(/\s+/g, ' ').slice(0, 80);
+      card.innerHTML = `<div class="ms-scene-card-title"></div>
+        <div class="ms-scene-card-meta hint"></div>
+        <div class="ms-scene-card-prev"></div>`;
+      card.querySelector('.ms-scene-card-title').textContent = sc.title;
+      card.querySelector('.ms-scene-card-meta').textContent =
+        `${(sc.content || '').length.toLocaleString()}字` + (sc.aiSnippets?.length ? ` · AI${sc.aiSnippets.length}` : '');
+      card.querySelector('.ms-scene-card-prev').textContent = first || '（未執筆）';
+      card.onclick = () => {
+        msSel.chapterId = ch.id; msSel.sceneId = sc.id;
+        renderMsTree(); updateMsEditor(); renderMsBoard();
+      };
+      grid.appendChild(card);
+    }
+    el.appendChild(grid);
+  }
+}
+
+// ---------- AI挿入部分の一覧・除去 ----------
+export function msShowAiParts() {
+  const sc = msScene();
+  if (!sc) { appAlert('シーンを選択してください'); return; }
+  const list = sc.aiSnippets || [];
+  if (!list.length) { appAlert('このシーンにAI挿入されたテキストはありません'); return; }
+  let html = `<p class="hint">シーン「${esc(sc.title)}」にAIが書いた部分（${list.length}件）。「除去」で本文から取り除きます。</p>`;
+  list.forEach((sn, i) => {
+    const preview = sn.text.replace(/\s+/g, ' ').slice(0, 120);
+    html += `<div class="card-item"><div class="hint">${new Date(sn.ts).toLocaleString('ja-JP')}</div>
+      <div style="margin:6px 0;white-space:pre-wrap">${esc(preview)}${sn.text.length > 120 ? '…' : ''}</div>
+      <button class="qb ai-rm" data-i="${i}">本文から除去</button></div>`;
+  });
+  showResultModal('AI挿入部分', html);
+  $('resultBody').querySelectorAll('.ai-rm').forEach(b => {
+    b.onclick = async () => {
+      const i = parseInt(b.dataset.i, 10);
+      const sn = sc.aiSnippets?.[i];
+      if (!sn) return;
+      if (!(await appConfirm('このAI挿入テキストを本文から取り除きますか？（取り消し不可）'))) return;
+      const idx = sc.content.indexOf(sn.text);
+      if (idx >= 0) sc.content = (sc.content.slice(0, idx) + sc.content.slice(idx + sn.text.length)).replace(/\n{3,}/g, '\n\n');
+      sc.aiSnippets.splice(i, 1);
+      renderMsTree(); updateMsEditor(); scheduleMsSave();
+      msShowAiParts();
+    };
+  });
+}
+
 export function exportManuscript() {
   let out = '';
   for (const ch of manuscript.chapters) {

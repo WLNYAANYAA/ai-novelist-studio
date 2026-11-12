@@ -388,7 +388,8 @@ export async function saveConversation(conv) {
       cardIds: conv.cardIds,
       snapshots: conv.snapshots,
       totalTokens: conv.totalTokens,
-      project: conv.project
+      project: conv.project,
+      sceneId: conv.sceneId || ''
     })
   });
   await refreshConvList();
@@ -435,6 +436,14 @@ function loadProfileToPanel() {
     '<option value="__new">＋新しいプロジェクト…</option>';
   if (curProj && !pnames.includes(curProj)) pproj.add(new Option(curProj, curProj));
   pproj.value = curProj;
+  // 対象シーン選択（原稿ペインのシーン一覧から。window.__msScenes は manuscript.js が公開）
+  const ssel = $('pScene');
+  if (ssel) {
+    const scenes = window.__msScenes ? window.__msScenes() : [];
+    ssel.innerHTML = '<option value="">（なし）</option>' +
+      scenes.map(s => `<option value="${esc(s.id)}">${esc(s.label)}</option>`).join('');
+    ssel.value = current?.sceneId || '';
+  }
   updatePresetStatus();
 }
 export { loadProfileToPanel };
@@ -447,6 +456,7 @@ export async function saveProfile() {
     if (!proj) { $('pProject').value = current.project || ''; return; }
   }
   current.project = proj;
+  current.sceneId = ($('pScene')?.value || '');
   current.profile = {
     ...(current.profile || {}),
     systemPrompt: $('pSystemPrompt').value,
@@ -474,13 +484,20 @@ export function onSearchInput() {
     if (!results.length) {
       searchResultsEl.innerHTML = '<div class="search-item hint">本文中の一致なし</div>';
     }
+    const KIND_LABEL = { doc: 'ドキュメント', scene: '原稿', source: 'ソース' };
     for (const r of results) {
       const div = document.createElement('div');
       div.className = 'search-item';
-      div.innerHTML = `<strong></strong> <span class="hint">${r.matchType === 'title' ? 'タイトル' : esc(r.snippet)}</span>`;
+      const label = KIND_LABEL[r.kind]
+        ? `${KIND_LABEL[r.kind]} — ${esc(r.snippet || '')}`
+        : (r.matchType === 'title' ? 'タイトル' : esc(r.snippet));
+      div.innerHTML = `<strong></strong> <span class="hint">${label}</span>`;
       div.querySelector('strong').textContent = r.title;
       div.onclick = async () => {
         searchBox.value = '';
+        if (r.kind === 'doc') { window.__openDocument?.(r.id); return; }
+        if (r.kind === 'scene') { if (window.__openScene?.(r.id)) return; }
+        if (r.kind === 'source') { window.__openSources?.(); return; }
         await openConversation(r.id);
       };
       searchResultsEl.appendChild(div);

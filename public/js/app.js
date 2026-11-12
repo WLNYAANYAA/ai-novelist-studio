@@ -2,7 +2,7 @@
 import { $, chatEl, inputEl, convTitleEl, searchBox } from './dom.js';
 import { api, esc, appPrompt } from './util.js';
 import { config, fun, abortCtrl, allTemplates, current, setConfig, setAllCards, setAllTemplates } from './state.js';
-import { loadManuscript, toggleManuscriptPane, exportManuscript, msAddChapter, msAddScene, msDelete, msScene, scheduleMsSave, msSetGoal, msForeshadowCheck, updateMsStats, openWritingChart, msAiWrite } from './manuscript.js';
+import { loadManuscript, toggleManuscriptPane, exportManuscript, msAddChapter, msAddScene, msDelete, msScene, scheduleMsSave, msSetGoal, msForeshadowCheck, updateMsStats, openWritingChart, msAiWrite, toggleMsBoard, toggleMsVertical, restoreMsVertical, msShowAiParts } from './manuscript.js';
 import { refreshSources, openSourcesModal, fillSourceProjectSelect, resetSourceForm, saveSource, deleteSource, importSourceFile, renderSourceList } from './sources.js';
 import { refreshDocuments, initDocEditor } from './documents.js';
 import { refreshConvList, restoreTabs, newConversation, renameConversation, saveProfile, deleteSelectedConvs, clearConvSelection, renderConvList, onSearchInput, queueDraftSave } from './conversations.js';
@@ -24,6 +24,7 @@ async function init() {
   setAllCards(await api('/api/cards'));
   setAllTemplates(await api('/api/templates'));
   loadManuscript();
+  restoreMsVertical();
   refreshSources();
   refreshDocuments();
   refreshPresets();
@@ -64,6 +65,9 @@ function bindUI() {
   $('btnMsForeshadow').onclick = msForeshadowCheck;
   $('btnMsChart').onclick = openWritingChart;
   $('btnMsWrite').onclick = msAiWrite;
+  $('btnMsAiParts').onclick = msShowAiParts;
+  $('btnMsBoard').onclick = toggleMsBoard;
+  $('btnMsVertical').onclick = toggleMsVertical;
   $('msGoal').onchange = e => msSetGoal(e.target.value);
   $('msSceneTitle').addEventListener('input', () => {
     const sc = msScene(); if (!sc) return;

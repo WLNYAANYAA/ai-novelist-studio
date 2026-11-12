@@ -1,4 +1,4 @@
-(() => {
+var DocEditorBundle = (() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
   var __esm = (fn, res, err) => function __init() {
     if (err) throw err[0];
@@ -20647,6 +20647,28 @@ img.ProseMirror-separator {
           }
         });
       }
+      var Ruby = Mark2.create({
+        name: "ruby",
+        addAttributes() {
+          return { reading: { default: "" } };
+        },
+        parseHTML() {
+          return [{ tag: "ruby", contentElement: "rb" }];
+        },
+        renderHTML({ HTMLAttributes }) {
+          const { reading, ...rest } = HTMLAttributes;
+          return ["ruby", rest, ["rb", {}, 0], ["rt", {}, reading || ""]];
+        }
+      });
+      var EmphasisDots = Mark2.create({
+        name: "emphasisDots",
+        parseHTML() {
+          return [{ tag: "span.emphasis-dots" }];
+        },
+        renderHTML() {
+          return ["span", { class: "emphasis-dots" }, 0];
+        }
+      });
       function createEditor(el, { content = "", placeholder = "", onUpdate = null, getNames = null, onSuggest = null } = {}) {
         const editor = new Editor({
           element: el,
@@ -20658,6 +20680,8 @@ img.ProseMirror-separator {
             Underline,
             Link.configure({ openOnClick: false, autolink: true, linkOnPaste: true, HTMLAttributes: { rel: "noopener noreferrer" } }),
             Placeholder.configure({ placeholder }),
+            Ruby,
+            EmphasisDots,
             WriterAssist.configure({ getNames: getNames || (() => []), onSuggest })
           ],
           content,
@@ -20670,5 +20694,5 @@ img.ProseMirror-separator {
       window.DocEditor = { create: createEditor, Editor };
     }
   });
-  require_index();
+  return require_index();
 })();

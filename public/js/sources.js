@@ -36,6 +36,9 @@ function renderProjectFilter() {
     '<option value="__none">（プロジェクトなし）</option>';
   sel.value = names.includes(cur) || ['__all', '__none'].includes(cur) ? cur : '__all';
 }
+// 検索結果からのジャンプ用
+window.__openSources = () => openSourcesModal();
+
 export function openSourcesModal(editSource = null) {
   refreshSources().then(() => {
     renderProjectFilter();

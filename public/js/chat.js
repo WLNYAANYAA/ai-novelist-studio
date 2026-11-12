@@ -10,7 +10,7 @@ import { openSettings } from './settings.js';
 import { logChars } from './ai-tools.js';
 import { syncFunButtons } from './features.js';
 import { refreshRealCtx } from './realtoken.js';
-import { adoptToManuscript } from './manuscript.js';
+import { adoptToManuscript, linkedSceneContext } from './manuscript.js';
 
 // 価格目安（AIのべりすと API: 1000tokあたり 0.275/2.25ルミナ ≈ ¥0.33/¥2.79）
 const PRICE_IN_PER_TOKEN = 0.00033, PRICE_OUT_PER_TOKEN = 0.00279;
@@ -120,6 +120,13 @@ function composeSystemPrompt() {
     if (Array.isArray(mems) && mems.length) parts.push('【長期記憶（英語圧縮メモ・時系列）】\n' + mems.join('\n'));
   }
   if (p.worldMemo?.trim()) parts.push('【文脈メモ】\n' + applyVars(p.worldMemo.trim()));
+  // 対象シーン紐付け：原稿のシーンに会話を紐付けると本文末尾が文脈に入る
+  const lsc = linkedSceneContext();
+  if (lsc) {
+    parts.push(`【執筆対象シーン】\n章: ${lsc.chapterTitle}\nシーン: ${lsc.title}` +
+      (lsc.tail ? `\n直近の本文末尾:\n${lsc.tail}` : '\n（このシーンの本文はまだありません）') +
+      '\n※この会話の応答は原稿のこのシーンに追加されることを意識して執筆してください。');
+  }
   const cardsText = selectedCardsText();
   if (cardsText) parts.push('【設定カード】\n' + cardsText);
   const lb = lorebookCardsText();
@@ -296,7 +303,7 @@ export async function runCompletion() {
       // 自動原稿モード：AI応答をそのまま原稿ペインに追加（要約/文体抽出メッセージは除外）
       if (fun.autoMs && !msgObj._summary && !msgObj._style && !msgObj._autoAdopted) {
         msgObj._autoAdopted = true;
-        adoptToManuscript(msgObj.content, { openPane: false });
+        adoptToManuscript(msgObj.content, { openPane: false, src: 'ai' });
       }
       if (config.params.suggestNext !== false) suggestNextSteps(botEl, conv);
       if (current === conv) updateCharCount();
