@@ -1,8 +1,8 @@
 /* AI Novelist Studio - frontend entry (init + UI bind) */
-import { $, chatEl, inputEl, convTitleEl, searchBox } from './dom.js';
+import { $, chatEl, inputEl, convTitleEl, searchBox, searchResultsEl } from './dom.js';
 import { api, esc, appPrompt } from './util.js';
 import { config, fun, abortCtrl, allTemplates, current, setConfig, setAllCards, setAllTemplates } from './state.js';
-import { loadManuscript, toggleManuscriptPane, exportManuscript, msAddChapter, msAddScene, msDelete, msScene, scheduleMsSave, msSetGoal, msForeshadowCheck, updateMsStats, openWritingChart, msAiWrite, toggleMsBoard, toggleMsVertical, restoreMsVertical, msShowAiParts } from './manuscript.js';
+import { loadManuscript, toggleManuscriptPane, exportManuscript, msAddChapter, msAddScene, msDelete, msDuplicateScene, msDuplicateChapter, msScene, scheduleMsSave, msSetGoal, msForeshadowCheck, updateMsStats, openWritingChart, openChapterChart, msAiWrite, toggleMsBoard, toggleMsVertical, restoreMsVertical, msShowAiParts } from './manuscript.js';
 import { refreshSources, openSourcesModal, fillSourceProjectSelect, resetSourceForm, saveSource, deleteSource, importSourceFile, renderSourceList } from './sources.js';
 import { refreshDocuments, initDocEditor } from './documents.js';
 import { refreshConvList, restoreTabs, newConversation, renameConversation, saveProfile, deleteSelectedConvs, clearConvSelection, renderConvList, onSearchInput, queueDraftSave, refreshSceneSelect } from './conversations.js';
@@ -18,6 +18,10 @@ import { refreshPresets, saveProjectPreset, applyProjectPreset, clearProjectPres
 import { togglePin, toggleTimer, toggleBgm, toggleEars, setAiName, toggleVoice, toggleNeko, toggleSakura, toggleInfinite, onMoodChange, moodUp, cycleTheme, applyTheme, updateAiNameTag, syncFunButtons, updateTimerDisplay, restorePin, initSelectionPopup, renderQuickReplies, addQuickReply, toggleWritingMode, showOutline, openHistoryModal, toggleSidebar, toggleAutoMs } from './features.js';
 import { openMacroModal, armMacroRec, saveMacro, resetMacroForm, macroRecArmed, macros, comboFromEvent, runMacro, fireHotkey, syncGlobalHotkeys } from './macros.js';
 import { openFlowGen } from './flowgen.js';
+import { initWorldGraph, openGraphTab } from './worldgraph.js';
+import { initSearchReplace } from './searchreplace.js';
+import { initConsistency } from './consistency.js';
+import { initTimeMachine } from './timemachine.js';
 
 // ---------- Init ----------
 async function init() {
@@ -61,8 +65,11 @@ function bindUI() {
   $('btnMsAddChapter').onclick = msAddChapter;
   $('btnMsAddScene').onclick = msAddScene;
   $('btnMsDel').onclick = msDelete;
+  $('btnMsDup').onclick = msDuplicateScene;
+  $('btnMsDupCh').onclick = msDuplicateChapter;
   $('btnMsForeshadow').onclick = msForeshadowCheck;
   $('btnMsChart').onclick = openWritingChart;
+  $('btnMsChChart').onclick = openChapterChart;
   $('btnMsWrite').onclick = msAiWrite;
   $('btnMsAiParts').onclick = msShowAiParts;
   $('btnMsBoard').onclick = toggleMsBoard;
@@ -109,6 +116,10 @@ function bindUI() {
   // プロンプト最適化
   $('btnOptimizePrompt').onclick = optimizePrompt;
   initDocEditor();
+  initWorldGraph();
+  initSearchReplace();
+  initConsistency();
+  initTimeMachine();
   initScrollWatch();
   $('btnSettings').onclick = openSettings;
   convTitleEl.title = 'ダブルクリックで会話名を変更';
@@ -233,6 +244,12 @@ function bindUI() {
   $('btnSend').onclick = send;
   $('btnStop').onclick = () => abortCtrl && abortCtrl.abort();
   searchBox.addEventListener('input', onSearchInput);
+  searchBox.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const first = searchResultsEl.querySelector('.search-item:not(.hint)');
+      if (first) { e.preventDefault(); first.click(); }
+    }
+  });
   $('convProjectFilter').addEventListener('change', renderConvList);
   inputEl.addEventListener('keydown', (e) => {
     if (tagSugKey(e)) return;
@@ -245,7 +262,24 @@ function bindUI() {
     const k = e.key.toLowerCase();
     if (k === 'n') { e.preventDefault(); newConversation(); }
     else if (k === 'k') { e.preventDefault(); searchBox.focus(); searchBox.select(); }
+    else if (k === 'g') { e.preventDefault(); openGraphTab(); }
     else if (k === ',') { e.preventDefault(); openSettings(); }
+  });
+  // Esc: 最前面のモーダルを閉じる（.modal-closeを持つもののみ。確認ダイアログは誤爆防止で対象外）
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const modals = [...document.querySelectorAll('.modal:not(.hidden)')];
+    if (modals.length) {
+      const top = modals[modals.length - 1];
+      const closer = top.querySelector('.modal-close');
+      if (closer) { e.preventDefault(); closer.click(); }
+      return;
+    }
+    if (document.activeElement === searchBox) {
+      searchBox.value = '';
+      onSearchInput();
+      searchBox.blur();
+    }
   });
   inputEl.addEventListener('input', () => {
     inputEl.style.height = 'auto';

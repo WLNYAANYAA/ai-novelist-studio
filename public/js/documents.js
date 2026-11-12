@@ -182,7 +182,7 @@ async function saveDocNow() {
     if (currentDoc?.id !== docId) return; // 切替後の古い応答は無視
     currentDoc = { ...currentDoc, ...d };
     convTitleEl.textContent = d.title || '無題';
-    updateDocStatus(`保存済み ${new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}`);
+    updateDocStatus(`保存済み ${new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} · ${(editor.getText().length).toLocaleString()}字`);
     renderDocList();
     renderTabs();
   } catch (e) {
@@ -316,6 +316,27 @@ async function docConsistencyCheck() {
   }
 }
 
+// ---------- 目次（見出し一覧→クリックでスクロール） ----------
+function docToc() {
+  if (!editor) return;
+  const heads = [...document.querySelectorAll('#docEditor .ProseMirror h1, #docEditor .ProseMirror h2, #docEditor .ProseMirror h3')];
+  if (!heads.length) { appAlert('見出し（H1〜H3）がありません'); return; }
+  let html = '<div class="doc-toc">';
+  heads.forEach((h, i) => {
+    const lv = +h.tagName[1];
+    html += `<div class="toc-h${lv}" data-i="${i}">${esc(h.textContent) || '（空の見出し）'}</div>`;
+  });
+  html += '</div>';
+  showResultModal('目次（' + heads.length + '件）', html);
+  $('resultBody').querySelectorAll('.toc-h1, .toc-h2, .toc-h3').forEach(el => {
+    el.onclick = () => {
+      const h = heads[+el.dataset.i];
+      if (h) h.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      $('resultModal').classList.add('hidden');
+    };
+  });
+}
+
 // ---------- AI出力をドキュメントに送る ----------
 export async function sendTextToDocument(text) {
   const t = (text || '').trim();
@@ -388,6 +409,15 @@ export function initDocEditor() {
   $('btnDocContinue') && ($('btnDocContinue').onclick = aiContinueDoc);
   $('btnDocCheck') && ($('btnDocCheck').onclick = docConsistencyCheck);
   $('btnDocLint') && ($('btnDocLint').onclick = runDocLint);
+  $('btnDocToc') && ($('btnDocToc').onclick = docToc);
+  // Ctrl/Cmd+S: 表示中ドキュメントを即時保存（デバウンス待ちを flush）
+  document.addEventListener('keydown', (e) => {
+    if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 's') return;
+    if (!currentDoc || $('docPane')?.classList.contains('hidden')) return;
+    e.preventDefault();
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+    saveDocNow();
+  });
 }
 
 registerTabOpener('doc', openDocument);

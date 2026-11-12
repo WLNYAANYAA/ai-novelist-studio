@@ -1,8 +1,8 @@
 // ---------- Cards（設定カード管理・会話別ピッカー） ----------
 import { $ } from './dom.js';
-import { api, appConfirm } from './util.js';
+import { api, appConfirm, esc } from './util.js';
 import { allCards, setAllCards, cardsVersion, setCardsVersion, current, CARD_KINDS } from './state.js';
-import { saveConversation } from './conversations.js';
+import { saveConversation, conversations } from './conversations.js';
 
 export async function refreshCards() {
   setAllCards(await api('/api/cards'));
@@ -10,12 +10,22 @@ export async function refreshCards() {
 }
 export function openCardsModal(editCard = null) {
   refreshCards().then(renderCardList);
+  const f = $('cardFilter');
+  if (f) { f.value = ''; f.oninput = renderCardList; }
   $('cardsModal').classList.remove('hidden');
   if (editCard) fillCardForm(editCard);
   else resetCardForm();
 }
 function renderCardList() {
   const el = $('cardList');
+  const q = (($('cardFilter') || {}).value || '').trim().toLowerCase();
+  const shown = q
+    ? allCards.filter(c =>
+        (c.name || '').toLowerCase().includes(q) ||
+        (c.content || '').toLowerCase().includes(q) ||
+        (c.tags || '').toLowerCase().includes(q) ||
+        (c.triggers || '').toLowerCase().includes(q))
+    : allCards;
   el.innerHTML = '';
   if (!allCards.length) {
     el.innerHTML = '<p class="hint">カードがありません。「新しいカード」で作成してください。</p>';
@@ -30,14 +40,26 @@ function renderCardList() {
     d.textContent = `伏線トラッカー: 未回収 ${open}件 / 回収済 ${fws.length - open}件（原稿ペインの「伏線チェック」でAI提案できます）`;
     el.appendChild(d);
   }
-  for (const c of allCards) {
+  if (q && !shown.length) {
+    el.innerHTML = '<p class="hint">「' + esc(q) + '」に一致するカードがありません</p>';
+    return;
+  }
+  const useCountOf = (id) => conversations.filter(cv => (cv.cardIds || []).includes(id)).length;
+  const maxUse = Math.max(1, ...shown.map(x => useCountOf(x.id)));
+  for (const c of shown) {
     const div = document.createElement('div');
     div.className = 'card-item';
     div.innerHTML = `<span class="card-kind">${CARD_KINDS[c.kind] || c.kind}</span> <strong></strong> ${c.resolved ? '<span class="card-resolved">回収済</span>' : ''} <span class="hint"></span>`;
     div.querySelector('strong').textContent = c.name;
     const tagStr = String(c.tags || '').split(/[,、\s]+/).filter(Boolean).map(t => '#' + t).join(' ');
     const hint = (c.content || '').slice(0, 60).replace(/\n/g, ' ');
-    div.querySelector('.hint').textContent = (tagStr ? tagStr + ' ' : '') + (c.triggers ? `⚑${c.triggers} ` : '') + hint;
+    const useCount = useCountOf(c.id);
+    div.querySelector('.hint').textContent = (tagStr ? tagStr + ' ' : '') + (c.triggers ? `⚑${c.triggers} ` : '') + (useCount ? `📎${useCount}会話 ` : '') + hint;
+    const bar = document.createElement('div');
+    bar.className = 'card-usebar';
+    bar.innerHTML = `<i style="width:${Math.round(useCount / maxUse * 100)}%"></i>`;
+    bar.title = `${useCount}件の会話で使用中`;
+    div.appendChild(bar);
     div.onclick = () => fillCardForm(c);
     el.appendChild(div);
   }

@@ -30,7 +30,7 @@ export let activeTabType = 'conv';
 export let activeTabId = null;
 
 // ---------- タブ基盤（conv/doc 共通） ----------
-const tabKey = (t) => (t.type === 'doc' ? 'd:' : '') + t.id;
+const tabKey = (t) => (t.type === 'doc' ? 'd:' : t.type === 'graph' ? 'g:' : '') + t.id;
 const isActiveTab = (t) => t.type === activeTabType && t.id === activeTabId;
 const tabOpeners = {}; // type -> (id) => Promise
 export function registerTabOpener(type, fn) { tabOpeners[type] = fn; }
@@ -47,6 +47,7 @@ export function activateTab(type, id) {
 let msPaneWasOpen = false;
 export function showChatView() {
   $('docPane')?.classList.add('hidden');
+  $('graphPane')?.classList.add('hidden');
   $('chatCol')?.classList.remove('hidden');
   if (msPaneWasOpen) {
     msPaneWasOpen = false;
@@ -59,7 +60,16 @@ export function showDocView() {
   $('chatCol')?.classList.add('hidden');
   $('manuscriptPane')?.classList.add('hidden');
   $('paramsPanel')?.classList.add('hidden');
+  $('graphPane')?.classList.add('hidden');
   $('docPane')?.classList.remove('hidden');
+}
+export function showGraphView() {
+  msPaneWasOpen = !!$('manuscriptPane') && !$('manuscriptPane').classList.contains('hidden');
+  $('chatCol')?.classList.add('hidden');
+  $('manuscriptPane')?.classList.add('hidden');
+  $('paramsPanel')?.classList.add('hidden');
+  $('docPane')?.classList.add('hidden');
+  $('graphPane')?.classList.remove('hidden');
 }
 
 // プロジェクト名の一覧（会話とソースの project を統合した名前空間）
@@ -89,6 +99,23 @@ export async function refreshConvList() {
 const selectedConvs = new Set();
 let lastSelIndex = -1;
 let visibleConvs = [];
+// スター（localStorage管理・重要な会話を先頭に表示）
+const convStars = new Set(JSON.parse(localStorage.getItem('conv_stars') || '[]'));
+function isConvStarred(id) { return convStars.has(id); }
+function toggleConvStar(id) {
+  if (convStars.has(id)) convStars.delete(id); else convStars.add(id);
+  localStorage.setItem('conv_stars', JSON.stringify([...convStars]));
+  renderConvList();
+}
+// 未読管理（最後に開いた時刻を記録。updatedがそれより新しければ未読ドット）
+const convSeen = JSON.parse(localStorage.getItem('conv_seen') || '{}');
+function markConvSeen(id) {
+  convSeen[id] = Date.now();
+  localStorage.setItem('conv_seen', JSON.stringify(convSeen));
+}
+function isConvUnread(c) {
+  return (c.updated || 0) > (convSeen[c.id] || 0) && !(current && current.id === c.id && activeTabType === 'conv');
+}
 function updateSelUI() {
   const bar = $('bulkBar');
   if (!bar) return;
@@ -149,9 +176,11 @@ export function renderConvList() {
     if (pf === '__none') return !c.project;
     return c.project === pf;
   });
+  // スター付き会話を先頭に（安定ソートでグループ内順序は維持）
+  visibleConvs.sort((a, b) => (isConvStarred(b.id) ? 1 : 0) - (isConvStarred(a.id) ? 1 : 0));
   visibleConvs.forEach((c, idx) => {
     const div = document.createElement('div');
-    div.className = 'conv-item' + (current && c.id === current.id && activeTabType === 'conv' ? ' active' : '') + (selectedConvs.has(c.id) ? ' selected' : '');
+    div.className = 'conv-item' + (current && c.id === current.id && activeTabType === 'conv' ? ' active' : '') + (selectedConvs.has(c.id) ? ' selected' : '') + (isConvUnread(c) ? ' unread' : '');
     div.innerHTML = `<div class="title"></div><div class="meta"></div>`;
     div.querySelector('.title').textContent = c.title;
     div.querySelector('.meta').textContent = `${c.project ? '📁' + c.project + ' · ' : ''}${c.messageCount} msgs · ${fmtDate(c.updated)}`;
@@ -180,6 +209,12 @@ export function renderConvList() {
       }
       await refreshConvList();
     };
+    const star = document.createElement('span');
+    star.className = 'conv-star' + (isConvStarred(c.id) ? ' on' : '');
+    star.textContent = isConvStarred(c.id) ? '★' : '☆';
+    star.title = 'スター（重要な会話。先頭に表示）';
+    star.onclick = (e) => { e.stopPropagation(); toggleConvStar(c.id); };
+    div.appendChild(star);
     const ren = document.createElement('span');
     ren.className = 'del ren';
     ren.innerHTML = icon('edit');
@@ -269,17 +304,30 @@ function saveTabs() {
   localStorage.setItem('open_tabs', JSON.stringify(tabs.map(tabKey)));
   localStorage.setItem('active_tab', activeTabId ? tabKey({ type: activeTabType, id: activeTabId }) : '');
 }
+// タブ並び替え（ドラッグ）
+let dragTabKey = null;
+const reorderTabs = (fromKey, toKey) => {
+  const fi = tabs.findIndex(t => tabKey(t) === fromKey);
+  const ti = tabs.findIndex(t => tabKey(t) === toKey);
+  if (fi < 0 || ti < 0 || fi === ti) return;
+  const [mv] = tabs.splice(fi, 1);
+  tabs.splice(ti, 0, mv);
+  saveTabs(); renderTabs();
+};
 export function renderTabs() {
   const el = $('tabs');
   if (!el) return;
   el.innerHTML = '';
   for (const t of tabs) {
     const isDoc = t.type === 'doc';
-    const title = isDoc
+    const isGraph = t.type === 'graph';
+    const title = isGraph
+      ? '物語グラフ'
+      : isDoc
       ? (allDocs.find(x => x.id === t.id)?.title || '読み込み中…')
       : (conversations.find(x => x.id === t.id)?.title || '読み込み中…');
     const div = document.createElement('div');
-    div.className = 'tab' + (isActiveTab(t) ? ' active' : '') + (isDoc ? ' tab-doc' : '');
+    div.className = 'tab' + (isActiveTab(t) ? ' active' : '') + (isDoc || isGraph ? ' tab-doc' : '') + (isGraph ? ' tab-graph' : '');
     const titleEl = document.createElement('span');
     titleEl.className = 'tab-title';
     titleEl.textContent = title || '無題';
@@ -289,9 +337,29 @@ export function renderTabs() {
     close.textContent = '×';
     close.title = 'タブを閉じる（データは削除されません）';
     close.onclick = (e) => { e.stopPropagation(); closeTab(t); };
+    div.onauxclick = (e) => { if (e.button === 1) { e.preventDefault(); e.stopPropagation(); closeTab(t); } };
+    div.oncontextmenu = (e) => { e.preventDefault(); closeTab(t); };
     div.appendChild(titleEl);
     div.appendChild(close);
     div.onclick = () => { if (!isActiveTab(t)) openTabEntry(t); };
+    div.draggable = true;
+    div.addEventListener('dragstart', (e) => {
+      dragTabKey = tabKey(t);
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', dragTabKey); } catch {}
+    });
+    div.addEventListener('dragover', (e) => { e.preventDefault(); div.classList.add('drag-over'); });
+    div.addEventListener('dragleave', () => div.classList.remove('drag-over'));
+    div.addEventListener('drop', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      div.classList.remove('drag-over');
+      reorderTabs(dragTabKey, tabKey(t));
+      dragTabKey = null;
+    });
+    div.addEventListener('dragend', () => {
+      dragTabKey = null;
+      el.querySelectorAll('.drag-over').forEach(x => x.classList.remove('drag-over'));
+    });
     el.appendChild(div);
   }
   const active = el.querySelector('.tab.active');
@@ -352,6 +420,7 @@ export async function loadConv(id) {
     return;
   }
   setCurrent(conv);
+  markConvSeen(id);
   current.profile = current.profile || {};
   current.cardIds = current.cardIds || [];
   current.snapshots = current.snapshots || [];
@@ -536,9 +605,12 @@ export async function restoreTabs() {
     const parsed = savedTabs.map(x =>
       (typeof x === 'string' && x.startsWith('d:'))
         ? { type: 'doc', id: x.slice(2) }
+        : (typeof x === 'string' && x.startsWith('g:'))
+        ? { type: 'graph', id: x.slice(2) }
         : { type: 'conv', id: x });
     const valid = parsed.filter(t =>
       t.type === 'doc' ? allDocs.some(d => d.id === t.id)
+      : t.type === 'graph' ? t.id === 'main'
       : conversations.some(c => c.id === t.id));
     if (valid.length) {
       tabs = valid;

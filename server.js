@@ -80,6 +80,7 @@ function writeDoc(kind, id, data) {
   pendingWrites.set(key, { kind, id, data });
   clearTimeout(writeTimers.get(key));
   writeTimers.set(key, setTimeout(() => flushWrite(key), 400));
+  maybeAutoSnapshot(kind);
 }
 function deleteDoc(kind, id) {
   const key = kind + '/' + id;
@@ -88,6 +89,70 @@ function deleteDoc(kind, id) {
   writeTimers.delete(key);
   try { stmtDelete.run(kind, id); }
   catch (e) { console.error('削除失敗:', kind, id, e.message); }
+  maybeAutoSnapshot(kind);
+}
+
+// ---------- タイムマシン：全データの時点スナップショット ----------
+// kind='tmsnap'（メタ）+ 'tmsnapdata'（全行ダンプ）をdocsテーブルに保存。
+// configは対象外（APIキー等の設定は創作データではないため）
+const SNAP_MAX = 150;
+const AUTO_SNAP_INTERVAL = 30 * 60 * 1000;
+let lastAutoSnap = 0;
+let lastSnapMaxUpdated = 0;
+const SNAP_SKIP_KINDS = new Set(['tmsnap', 'tmsnapdata', 'config']);
+
+function flushAllWrites() {
+  for (const key of [...pendingWrites.keys()]) flushWrite(key);
+}
+function maxDocUpdated() {
+  let m = 0;
+  const stmt = db.prepare('SELECT MAX(updated) AS u FROM docs WHERE kind = ?');
+  for (const kind of ['conv', 'card', 'template', 'source', 'doc', 'manuscript', 'worldgraph', 'projectPreset', 'snapshot']) {
+    const r = stmt.get(kind);
+    if (r && r.u > m) m = r.u;
+  }
+  return m;
+}
+function createSnapshot(label, auto) {
+  flushAllWrites();
+  const ts = Date.now();
+  const id = String(ts);
+  const rows = db.prepare(
+    "SELECT kind, id, data, updated FROM docs WHERE kind NOT IN ('tmsnap','tmsnapdata','config')"
+  ).all();
+  const payload = JSON.stringify({ ts, docs: rows });
+  const meta = {
+    ts, id, auto: !!auto,
+    label: String(label || '').slice(0, 100) || (auto ? '自動記録' : '記録'),
+    count: rows.length,
+    bytes: Buffer.byteLength(payload),
+    maxUpdated: rows.reduce((m, r) => Math.max(m, r.updated || 0), 0)
+  };
+  stmtUpsert.run('tmsnap', id, JSON.stringify(meta), ts);
+  stmtUpsert.run('tmsnapdata', id, payload, ts);
+  lastSnapMaxUpdated = meta.maxUpdated;
+  // 上限超過分を古い順に削除
+  const metas = stmtAll.all('tmsnap').map(r => { try { return JSON.parse(r.data); } catch { return null; } })
+    .filter(Boolean).sort((a, b) => a.ts - b.ts);
+  for (const old of metas.slice(0, Math.max(0, metas.length - SNAP_MAX))) {
+    stmtDelete.run('tmsnap', old.id);
+    stmtDelete.run('tmsnapdata', old.id);
+  }
+  return meta;
+}
+function maybeAutoSnapshot(kind) {
+  if (SNAP_SKIP_KINDS.has(kind)) return;
+  const now = Date.now();
+  if (now - lastAutoSnap < AUTO_SNAP_INTERVAL) return;
+  lastAutoSnap = now;
+  setImmediate(() => {
+    try {
+      flushAllWrites(); // デバウンス滞留分を先に確定させてから変更判定する
+      // 前回スナップショット以降に実変更がなければ空スナップショットを作らない
+      if (maxDocUpdated() <= lastSnapMaxUpdated) return;
+      createSnapshot('自動 ' + new Date(now).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }), true);
+    } catch (e) { console.error('自動スナップショット失敗:', e.message); }
+  });
 }
 process.on('exit', () => {
   for (const key of [...pendingWrites.keys()]) flushWrite(key);
@@ -391,6 +456,8 @@ function convSummary(c) {
     updated: c.updated,
     messageCount: (c.messages || []).length,
     project: c.project || '',
+    cardIds: c.cardIds || [],
+    sceneId: c.sceneId || '',
     totalTokens: c.totalTokens || { input: 0, output: 0 }
   };
 }
@@ -725,6 +792,111 @@ app.delete('/api/documents/:id', (req, res) => {
   delete documents[req.params.id];
   deleteDoc('doc', req.params.id);
   res.json({ ok: true });
+});
+
+// ---------- World Graph（物語グラフ：ノード配置・手動エッジの永続化） ----------
+let worldGraph = loadDoc('worldgraph', 'main', { nodes: {}, edges: [] });
+app.get('/api/worldgraph', (req, res) => res.json(worldGraph));
+app.put('/api/worldgraph', (req, res) => {
+  const b = req.body || {};
+  const nodes = {};
+  if (b.nodes && typeof b.nodes === 'object') {
+    for (const [id, p] of Object.entries(b.nodes).slice(0, 5000)) {
+      if (p && typeof p === 'object' && isFinite(+p.x) && isFinite(+p.y)) {
+        nodes[String(id).slice(0, 80)] = {
+          x: Math.round(+p.x), y: Math.round(+p.y),
+          ...(p.pin === true ? { pin: true } : {})
+        };
+      }
+    }
+  }
+  const EDGE_KINDS = ['related', 'foreshadow', 'causal', 'appears'];
+  const seen = new Set();
+  const edges = (Array.isArray(b.edges) ? b.edges : []).slice(0, 5000)
+    .filter(e => e && typeof e === 'object')
+    .map(e => ({
+      id: String(e.id || '').slice(0, 80),
+      from: String(e.from || '').slice(0, 80),
+      to: String(e.to || '').slice(0, 80),
+      kind: EDGE_KINDS.includes(e.kind) ? e.kind : 'related',
+      label: String(e.label || '').slice(0, 100)
+    }))
+    .filter(e => {
+      if (!e.from || !e.to || e.from === e.to) return false;
+      const k = e.from + '>' + e.to + '>' + e.kind;
+      if (seen.has(k)) return false;
+      seen.add(k); return true;
+    });
+  worldGraph = { nodes, edges, updated: Date.now() };
+  writeDoc('worldgraph', 'main', worldGraph);
+  res.json({ ok: true });
+});
+
+// ---------- タイムマシン API ----------
+app.get('/api/timemachine', (req, res) => {
+  const metas = Object.values(loadStore('tmsnap'))
+    .filter(m => m && m.ts)
+    .sort((a, b) => b.ts - a.ts);
+  res.json(metas);
+});
+app.post('/api/timemachine', (req, res) => {
+  const meta = createSnapshot((req.body || {}).label, false);
+  res.json(meta);
+});
+app.get('/api/timemachine/:id', (req, res) => {
+  const row = stmtOne.get('tmsnapdata', String(req.params.id));
+  if (!row) return res.status(404).json({ error: 'not found' });
+  res.type('application/json').send(row.data);
+});
+app.delete('/api/timemachine/:id', (req, res) => {
+  const id = String(req.params.id);
+  if (!stmtOne.get('tmsnap', id)) return res.status(404).json({ error: 'not found' });
+  stmtDelete.run('tmsnap', id);
+  stmtDelete.run('tmsnapdata', id);
+  res.json({ ok: true });
+});
+app.post('/api/timemachine/:id/restore', (req, res) => {
+  const id = String(req.params.id);
+  const row = stmtOne.get('tmsnapdata', id);
+  if (!row) return res.status(404).json({ error: 'not found' });
+  let payload;
+  try { payload = JSON.parse(row.data); }
+  catch { return res.status(500).json({ error: 'スナップショットが破損しています' }); }
+  flushAllWrites();
+  // DBをスナップショット時点に戻す（tmsnap系・configは保持）
+  db.exec("DELETE FROM docs WHERE kind NOT IN ('tmsnap','tmsnapdata','config')");
+  const ins = db.prepare('INSERT INTO docs (kind, id, data, updated) VALUES (?, ?, ?, ?)');
+  for (const d of payload.docs || []) {
+    try { ins.run(d.kind, d.id, d.data, d.updated || Date.now()); } catch {}
+  }
+  // サーバーのインメモリストアも再構築（これをしないと次の保存で旧データに戻る）
+  const byKind = {};
+  for (const d of payload.docs || []) {
+    (byKind[d.kind] = byKind[d.kind] || []).push(d);
+  }
+  const toObj = (kind) => {
+    const o = {};
+    for (const d of byKind[kind] || []) {
+      try { o[d.id] = JSON.parse(d.data); } catch {}
+    }
+    return o;
+  };
+  conversations = toObj('conv');
+  cards = toObj('card');
+  templates = toObj('template');
+  sources = toObj('source');
+  documents = toObj('doc');
+  projectPresets = toObj('projectPreset');
+  const msRows = byKind['manuscript'] || [];
+  const msMain = msRows.find(d => d.id === 'main');
+  try { manuscript = msMain ? JSON.parse(msMain.data) : { title: '無題', chapters: [] }; }
+  catch { manuscript = { title: '無題', chapters: [] }; }
+  const wgRows = byKind['worldgraph'] || [];
+  const wgMain = wgRows.find(d => d.id === 'main');
+  try { worldGraph = wgMain ? JSON.parse(wgMain.data) : { nodes: {}, edges: [] }; }
+  catch { worldGraph = { nodes: {}, edges: [] }; }
+  lastSnapMaxUpdated = Math.max(lastSnapMaxUpdated, payload.ts || 0);
+  res.json({ ok: true, restored: id });
 });
 
 // ---------- ファイル取り込み（PDF/DOCX → テキスト抽出） ----------

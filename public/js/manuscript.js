@@ -7,6 +7,12 @@ import { Chart, registerables } from './vendor.bundle.js';
 
 let manuscript = { title: '無題', chapters: [] };
 let msSel = { chapterId: null, sceneId: null };
+const msCollapsed = new Set(JSON.parse(localStorage.getItem('ms_collapsed') || '[]'));
+function toggleMsCollapse(chId) {
+  if (msCollapsed.has(chId)) msCollapsed.delete(chId); else msCollapsed.add(chId);
+  localStorage.setItem('ms_collapsed', JSON.stringify([...msCollapsed]));
+  renderMsTree();
+}
 let msSaveTimer = null;
 const msUid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
@@ -102,6 +108,41 @@ export function openWritingChart() {
     },
   });
 }
+// ---------- 章別文字数グラフ ----------
+export function openChapterChart() {
+  const rows = manuscript.chapters
+    .map(ch => ({
+      title: ch.title,
+      chars: ch.scenes.reduce((a, s) => a + (s.content || '').length, 0)
+    }))
+    .filter(r => r.chars > 0);
+  if (!rows.length) { appAlert('まだ文字数データがありません'); return; }
+  showResultModal('章別の文字数', '<canvas id="msChChart" height="240"></canvas>');
+  const canvas = $('msChChart');
+  if (!canvas) return;
+  if (!chartRegistered) { Chart.register(...registerables); chartRegistered = true; }
+  if (msChart) { msChart.destroy(); msChart = null; }
+  msChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: rows.map(r => r.title.length > 10 ? r.title.slice(0, 9) + '…' : r.title),
+      datasets: [{
+        label: '文字数',
+        data: rows.map(r => r.chars),
+        backgroundColor: 'rgba(74,127,212,.55)',
+        borderRadius: 3,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { color: '#888' }, grid: { color: 'rgba(128,128,128,.15)' } },
+        x: { ticks: { color: '#888', maxRotation: 60 }, grid: { display: false } },
+      },
+    },
+  });
+}
 function scheduleMsSave() {
   clearTimeout(msSaveTimer);
   msSaveTimer = setTimeout(flushMsSave, 600);
@@ -178,17 +219,41 @@ function renderMsTree() {
     const chEl = document.createElement('div');
     chEl.className = 'ms-ch' + (ch.id === msSel.chapterId ? ' sel' : '');
     chEl.textContent = ch.title;
+    const chChars = ch.scenes.reduce((a, s) => a + (s.content || '').length, 0);
+    const chCnt = document.createElement('span');
+    chCnt.className = 'ms-ch-count';
+    chCnt.textContent = chChars ? chChars.toLocaleString() + '字' : '';
+    chEl.appendChild(chCnt);
+    const collapsed = msCollapsed.has(ch.id);
+    const caret = document.createElement('span');
+    caret.className = 'ms-caret';
+    caret.textContent = collapsed ? '▸' : '▾';
+    caret.title = collapsed ? '展開' : '折りたたむ';
+    caret.onclick = (e) => { e.stopPropagation(); toggleMsCollapse(ch.id); };
+    chEl.insertBefore(caret, chEl.firstChild);
+    const mkChMv = (dir, label) => {
+      const b = document.createElement('span');
+      b.className = 'ms-mv';
+      b.textContent = label;
+      b.title = dir < 0 ? '章を上へ' : '章を下へ';
+      b.onclick = (ev) => { ev.stopPropagation(); msMoveChapter(ch, dir); };
+      return b;
+    };
+    chEl.appendChild(mkChMv(-1, '⇈'));
+    chEl.appendChild(mkChMv(1, '⇊'));
     chEl.onclick = () => {
       msSel.chapterId = ch.id;
       msSel.sceneId = ch.scenes[0]?.id || null;
       renderMsTree(); updateMsEditor();
     };
     el.appendChild(chEl);
+    if (collapsed) continue;
     for (const sc of ch.scenes) {
       const scEl = document.createElement('div');
       scEl.className = 'ms-sc' + (sc.id === msSel.sceneId ? ' sel' : '');
       const cnt = document.createElement('span');
-      cnt.className = 'ms-count';
+      const scLen = (sc.content || '').length;
+      cnt.className = 'ms-count' + (scLen >= 8000 ? ' heat3' : scLen >= 2000 ? ' heat2' : '');
       cnt.textContent = sc.content ? `${sc.content.length}字` : '';
       if (sc.aiSnippets?.length) {
         const badge = document.createElement('span');
@@ -199,6 +264,16 @@ function renderMsTree() {
       }
       scEl.appendChild(document.createTextNode(sc.title));
       scEl.appendChild(cnt);
+      const mkMv = (dir, label) => {
+        const b = document.createElement('span');
+        b.className = 'ms-mv';
+        b.textContent = label;
+        b.title = dir < 0 ? '上へ移動' : '下へ移動';
+        b.onclick = (ev) => { ev.stopPropagation(); msMoveScene(ch, sc, dir); };
+        return b;
+      };
+      scEl.appendChild(mkMv(-1, '↑'));
+      scEl.appendChild(mkMv(1, '↓'));
       scEl.onclick = () => { msSel.chapterId = ch.id; msSel.sceneId = sc.id; renderMsTree(); updateMsEditor(); };
       el.appendChild(scEl);
     }
@@ -325,6 +400,25 @@ export function msAppendGenerated({ chapterTitle = '', sceneTitle = '', content 
   }
   return sc;
 }
+// 横断検索・置換用：原稿シーンの一括置換。reは/gフラグ付きRegExp。sceneIds指定で対象限定
+export function msReplaceScenes(re, replacement, sceneIds = null) {
+  const ids = sceneIds ? new Set(sceneIds) : null;
+  let count = 0;
+  const touched = [];
+  for (const ch of manuscript.chapters) {
+    for (const sc of ch.scenes) {
+      if (ids && !ids.has(sc.id)) continue;
+      const before = sc.content || '';
+      const n = (before.match(re) || []).length;
+      if (!n) continue;
+      sc.content = before.replace(re, () => replacement);
+      count += n;
+      touched.push(sc.id);
+    }
+  }
+  if (count) { renderMsTree(); updateMsEditor(); scheduleMsSave(); }
+  return { count, sceneIds: touched };
+}
 // バッチ追加後に一度だけUIを更新する用
 export function msRefresh() {
   renderMsTree();
@@ -414,6 +508,54 @@ export async function msAddScene() {
   ch.scenes.push(sc);
   msSel.sceneId = sc.id;
   renderMsTree(); updateMsEditor(); scheduleMsSave();
+}
+export async function msDuplicateScene() {
+  const sc = msScene();
+  const ch = msChapter();
+  if (!sc || !ch) { appAlert('シーンを選択してください'); return; }
+  const copy = {
+    id: msUid(),
+    title: (sc.title || 'シーン') + 'のコピー',
+    content: sc.content || '',
+    ...(sc.aiSnippets?.length ? { aiSnippets: sc.aiSnippets.map(s => ({ ...s })) } : {})
+  };
+  const idx = ch.scenes.findIndex(s => s.id === sc.id);
+  ch.scenes.splice(idx + 1, 0, copy);
+  msSel.sceneId = copy.id;
+  renderMsTree(); updateMsEditor(); scheduleMsSave();
+}
+export async function msDuplicateChapter() {
+  const ch = msChapter();
+  if (!ch) { appAlert('章を選択してください（ツリーの章名をクリック）'); return; }
+  const copy = {
+    id: msUid(),
+    title: (ch.title || '章') + 'のコピー',
+    scenes: ch.scenes.map(s => ({
+      id: msUid(), title: s.title, content: s.content || '',
+      ...(s.aiSnippets?.length ? { aiSnippets: s.aiSnippets.map(x => ({ ...x })) } : {})
+    }))
+  };
+  const i = manuscript.chapters.findIndex(c => c.id === ch.id);
+  manuscript.chapters.splice(i + 1, 0, copy);
+  msSel.chapterId = copy.id;
+  msSel.sceneId = copy.scenes[0]?.id || null;
+  renderMsTree(); updateMsEditor(); scheduleMsSave();
+}
+function msMoveChapter(ch, dir) {
+  const i = manuscript.chapters.findIndex(c => c.id === ch.id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= manuscript.chapters.length) return;
+  [manuscript.chapters[i], manuscript.chapters[j]] = [manuscript.chapters[j], manuscript.chapters[i]];
+  renderMsTree();
+  scheduleMsSave();
+}
+function msMoveScene(ch, sc, dir) {
+  const i = ch.scenes.findIndex(s => s.id === sc.id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= ch.scenes.length) return;
+  [ch.scenes[i], ch.scenes[j]] = [ch.scenes[j], ch.scenes[i]];
+  renderMsTree();
+  scheduleMsSave();
 }
 export async function msDelete() {
   const sc = msScene();

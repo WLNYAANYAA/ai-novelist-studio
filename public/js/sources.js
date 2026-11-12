@@ -44,6 +44,8 @@ export function openSourcesModal(editSource = null) {
     renderProjectFilter();
     renderSourceList();
   });
+  const f = $('srcFilter');
+  if (f) { f.value = ''; f.oninput = renderSourceList; }
   $('sourcesModal').classList.remove('hidden');
   if (editSource) fillSourceForm(editSource);
   else resetSourceForm();
@@ -52,10 +54,14 @@ export function renderSourceList() {
   const el = $('sourceList');
   el.innerHTML = '';
   const f = ($('srcProjectFilter') || {}).value || '__all';
-  const list = allSources.filter(s =>
-    f === '__all' ? true : f === '__none' ? !s.project : s.project === f);
+  const q = (($('srcFilter') || {}).value || '').trim().toLowerCase();
+  const list = allSources.filter(s => {
+    if (f !== '__all' && (f === '__none' ? !!s.project : s.project !== f)) return false;
+    if (q && !((s.name || '').toLowerCase().includes(q) || (s.content || '').toLowerCase().includes(q))) return false;
+    return true;
+  });
   if (!list.length) {
-    el.innerHTML = '<p class="hint">ソースがありません。「新しいソース」で資料を登録してください。</p>';
+    el.innerHTML = '<p class="hint">' + (q ? '「' + esc(q) + '」に一致するソースがありません' : 'ソースがありません。「新しいソース」で資料を登録してください。') + '</p>';
     return;
   }
   for (const s of list) {
