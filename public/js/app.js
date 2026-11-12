@@ -2,7 +2,7 @@
 import { $, chatEl, inputEl, convTitleEl, searchBox } from './dom.js';
 import { api, esc, appPrompt } from './util.js';
 import { config, fun, abortCtrl, allTemplates, current, setConfig, setAllCards, setAllTemplates } from './state.js';
-import { loadManuscript, toggleManuscriptPane, exportManuscript, msAddChapter, msAddScene, msDelete, msScene, scheduleMsSave, msSetGoal, msForeshadowCheck, updateMsStats, openWritingChart } from './manuscript.js';
+import { loadManuscript, toggleManuscriptPane, exportManuscript, msAddChapter, msAddScene, msDelete, msScene, scheduleMsSave, msSetGoal, msForeshadowCheck, updateMsStats, openWritingChart, msAiWrite } from './manuscript.js';
 import { refreshSources, openSourcesModal, fillSourceProjectSelect, resetSourceForm, saveSource, deleteSource, importSourceFile, renderSourceList } from './sources.js';
 import { refreshDocuments, initDocEditor } from './documents.js';
 import { refreshConvList, restoreTabs, newConversation, renameConversation, saveProfile, deleteSelectedConvs, clearConvSelection, renderConvList, onSearchInput, queueDraftSave } from './conversations.js';
@@ -15,7 +15,7 @@ import { openCardsModal, openCardPicker, saveCard, resetCardForm, deleteCard, sa
 import { runPipeline, genVariants, analyzeEmotion, collectTerms, extractStyle, showWritingLog, refreshStyleOptions, openStyleAnalyzer, fillStyleSample, runStyleAnalysis, saveStyleAnalysisAsPreset, saveStyleAnalysisAsCard, saveStyleDNA, clearStyleDNA, readerSimulate, openBrainDump, runBrainDump, foreshadowTracker } from './ai-tools.js';
 import { runDupCheck } from './lint.js';
 import { refreshPresets, saveProjectPreset, applyProjectPreset, clearProjectPreset, updatePresetStatus } from './presets.js';
-import { togglePin, toggleTimer, toggleBgm, toggleEars, setAiName, toggleVoice, toggleNeko, toggleSakura, toggleInfinite, onMoodChange, moodUp, cycleTheme, applyTheme, updateAiNameTag, syncFunButtons, updateTimerDisplay, restorePin, initSelectionPopup, renderQuickReplies, addQuickReply, toggleWritingMode, showOutline, openHistoryModal, toggleSidebar } from './features.js';
+import { togglePin, toggleTimer, toggleBgm, toggleEars, setAiName, toggleVoice, toggleNeko, toggleSakura, toggleInfinite, onMoodChange, moodUp, cycleTheme, applyTheme, updateAiNameTag, syncFunButtons, updateTimerDisplay, restorePin, initSelectionPopup, renderQuickReplies, addQuickReply, toggleWritingMode, showOutline, openHistoryModal, toggleSidebar, toggleAutoMs } from './features.js';
 import { openMacroModal, armMacroRec, saveMacro, resetMacroForm, macroRecArmed, macros, comboFromEvent, runMacro, fireHotkey, syncGlobalHotkeys } from './macros.js';
 
 // ---------- Init ----------
@@ -52,6 +52,7 @@ function bindUI() {
   $('btnSidebarToggle').onclick = toggleSidebar;
   // 原稿ペイン
   $('qbManuscript').onclick = toggleManuscriptPane;
+  $('qbAutoMs').onclick = toggleAutoMs;
   $('btnMsClose').onclick = () => {
     $('manuscriptPane').classList.add('hidden');
     $('qbManuscript')?.classList.remove('active');
@@ -62,6 +63,7 @@ function bindUI() {
   $('btnMsDel').onclick = msDelete;
   $('btnMsForeshadow').onclick = msForeshadowCheck;
   $('btnMsChart').onclick = openWritingChart;
+  $('btnMsWrite').onclick = msAiWrite;
   $('msGoal').onchange = e => msSetGoal(e.target.value);
   $('msSceneTitle').addEventListener('input', () => {
     const sc = msScene(); if (!sc) return;

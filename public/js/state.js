@@ -50,7 +50,8 @@ export const fun = {
   aiName: localStorage.getItem('fun_ainame') || '',
   ears: localStorage.getItem('fun_ears') === '1',
   bgm: false,
-  writingMode: localStorage.getItem('fun_writingmode') === '1'
+  writingMode: localStorage.getItem('fun_writingmode') === '1',
+  autoMs: localStorage.getItem('fun_automs') === '1'
 };
 export const saveFun = (k) => localStorage.setItem('fun_' + k, fun[k] ? '1' : '0');
 localStorage.setItem('fun_mood', fun.mood);

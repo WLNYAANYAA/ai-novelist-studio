@@ -295,6 +295,33 @@ async function docConsistencyCheck() {
   }
 }
 
+// ---------- AI出力をドキュメントに送る ----------
+export async function sendTextToDocument(text) {
+  const t = (text || '').trim();
+  if (!t) return;
+  const name = await appPrompt('送信先ドキュメント名（既存名なら末尾に追記・空欄で「AI出力」）', '');
+  if (name === null) return;
+  const title = name.trim() || 'AI出力';
+  const paras = t.split(/\n{2,}/)
+    .map(p => '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>')
+    .join('');
+  let doc = allDocs.find(d => (d.title || '無題') === title);
+  if (!doc) {
+    doc = await api('/api/documents', { method: 'POST', body: JSON.stringify({ title, content: '' }) });
+    await refreshDocuments();
+  }
+  const full = await api('/api/documents/' + doc.id);
+  const prev = full.content || '';
+  const content = prev + (prev ? '<p></p>' : '') + paras;
+  await api('/api/documents/' + doc.id, {
+    method: 'PUT',
+    body: JSON.stringify({ title: full.title || title, project: full.project || '', content })
+  });
+  await refreshDocuments();
+  await openDocument(doc.id);
+  updateDocStatus(`「${full.title || title}」に追加しました`);
+}
+
 function exportCurrentDocument() {
   if (!currentDoc || !editor) return;
   const title = ($('docTitle').value || '').trim() || currentDoc.title || '無題';

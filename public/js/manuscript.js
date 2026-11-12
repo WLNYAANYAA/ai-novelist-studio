@@ -1,7 +1,7 @@
 // ---------- Manuscript（原稿ペイン） ----------
 import { $ } from './dom.js';
 import { api, appPrompt, appConfirm, appAlert, appDialog, downloadFile, showResultModal } from './util.js';
-import { allCards } from './state.js';
+import { allCards, current, config } from './state.js';
 import { callApiOnce } from './context.js';
 import { Chart, registerables } from './vendor.bundle.js';
 
@@ -181,7 +181,8 @@ export function toggleManuscriptPane() {
   pane.classList.toggle('hidden');
   $('qbManuscript')?.classList.toggle('active', !pane.classList.contains('hidden'));
 }
-export function adoptToManuscript(text) {
+export function adoptToManuscript(text, opts = {}) {
+  const { openPane = true, newScene = false } = opts;
   const t = (text || '').trim();
   if (!t) return;
   if (!manuscript.chapters.length) {
@@ -189,7 +190,7 @@ export function adoptToManuscript(text) {
   }
   let ch = msChapter() || manuscript.chapters[0];
   msSel.chapterId = ch.id;
-  if (!ch.scenes.length || !ch.scenes.some(s => s.id === msSel.sceneId)) {
+  if (newScene || !ch.scenes.length || !ch.scenes.some(s => s.id === msSel.sceneId)) {
     const sc = { id: msUid(), title: `シーン${ch.scenes.length + 1}`, content: '' };
     ch.scenes.push(sc);
     msSel.sceneId = sc.id;
@@ -199,10 +200,76 @@ export function adoptToManuscript(text) {
   renderMsTree();
   updateMsEditor();
   scheduleMsSave();
-  $('manuscriptPane').classList.remove('hidden');
-  $('qbManuscript')?.classList.add('active');
+  if (openPane) {
+    $('manuscriptPane').classList.remove('hidden');
+    $('qbManuscript')?.classList.add('active');
+  }
   $('msStatus').textContent = `「${sc.title}」に追加しました`;
   setTimeout(() => { if ($('msStatus').textContent.startsWith('「')) $('msStatus').textContent = ''; }, 2500);
+}
+
+// ---------- シーンをAIに書かせる ----------
+export async function msAiWrite() {
+  const sc = msScene();
+  if (!sc) { appAlert('シーンを選択してください（ツリーから選択）'); return; }
+  const ch = msChapter();
+  const hasContent = (sc.content || '').trim().length > 0;
+  let lengthHint = '';
+  if (!hasContent) {
+    const v = await appPrompt(`シーン「${sc.title}」の生成文字数の目安`, '1500');
+    if (v === null) return;
+    lengthHint = (v || '').trim();
+  } else if (!(await appConfirm(`シーン「${sc.title}」の末尾に続きを書きます。よろしいですか？`))) return;
+
+  const btn = $('btnMsWrite');
+  if (btn) btn.disabled = true;
+  $('msStatus').textContent = 'AIが執筆中…';
+  try {
+    // 文脈収集：章/シーン情報・直前シーン末尾・選択カード・文体指定
+    const flat = manuscript.chapters.flatMap(c => c.scenes);
+    const idx = flat.findIndex(s => s.id === sc.id);
+    const prev = idx > 0 ? flat[idx - 1] : null;
+    const prevTail = prev ? `【直前のシーン「${prev.title}」末尾】\n${(prev.content || '').slice(-1200)}` : '';
+    const tail = hasContent ? `【このシーンの既存本文（末尾）】\n${(sc.content || '').slice(-2500)}` : '';
+
+    const selIds = new Set(current?.cardIds || []);
+    const cardText = allCards
+      .filter(c => selIds.size ? selIds.has(c.id) : true)
+      .filter(c => c.content)
+      .slice(0, 12)
+      .map(c => `【${c.name}】（${c.kind || 'term'}）\n${(c.content || '').slice(0, 700)}`)
+      .join('\n\n')
+      .slice(0, 9000);
+
+    const styleText = config?.stylePreset || '';
+    const { text } = await callApiOnce([
+      { role: 'system', content: 'あなたは小説家です。指定されたシーンの本文のみを執筆してください。見出し・説明・前置き・Markdown装飾は一切不要で、本文だけを出力してください。文体・視点・トーンは指定があればそれに従い、直前の本文がある場合はその流れを自然に継いでください。' },
+      { role: 'user', content: [
+        `【章】${ch?.title || ''}`,
+        `【シーン】${sc.title}`,
+        styleText ? `【文体指定】${styleText}` : '',
+        lengthHint ? `【指示】${lengthHint}字程度で執筆してください` : '',
+        prevTail,
+        tail,
+        cardText ? `【設定・登場人物】\n${cardText}` : '',
+        hasContent ? '上記の既存本文の直後に続く文章を執筆してください。' : 'このシーンの本文を最初から執筆してください。'
+      ].filter(Boolean).join('\n\n') }
+    ]);
+    const add = (text || '').trim();
+    if (!add) { $('msStatus').textContent = '生成結果が空でした'; return; }
+    sc.content = hasContent
+      ? (sc.content || '').replace(/\s+$/, '') + '\n\n' + add
+      : add;
+    renderMsTree();
+    updateMsEditor();
+    scheduleMsSave();
+    $('msStatus').textContent = `「${sc.title}」に${hasContent ? '続きを' : '本文を'}追加しました`;
+    setTimeout(() => { if ($('msStatus').textContent.includes('追加しました')) $('msStatus').textContent = ''; }, 3000);
+  } catch (e) {
+    $('msStatus').textContent = '生成失敗: ' + (e.message || e);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 export async function msAddChapter() {
   const n = manuscript.chapters.length + 1;

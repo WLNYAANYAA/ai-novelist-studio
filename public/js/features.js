@@ -80,8 +80,16 @@ export function toggleInfinite() {
   $('qbInfinite').title = fun.infinite ? '無限生成ON（5回まで自動継続）' : '無限生成（5回まで自動で続きを生成）';
 }
 
+// ---------- 自動原稿（AI応答を原稿ペインに自動追加） ----------
+export function toggleAutoMs() {
+  fun.autoMs = !fun.autoMs;
+  saveFun('autoMs');
+  $('qbAutoMs')?.classList.toggle('active', fun.autoMs);
+}
+
 export function syncFunButtons() {
   $('qbNeko').classList.toggle('active', fun.neko);
+  $('qbAutoMs')?.classList.toggle('active', fun.autoMs);
   $('qbSakura').classList.toggle('active', fun.sakura);
   $('qbInfinite').classList.toggle('active', fun.infinite);
   $('btnExitWriting').classList.toggle('hidden', !fun.writingMode);

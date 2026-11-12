@@ -215,6 +215,7 @@
         <div id="composer">
           <div id="quickbar">
             <button class="qb" id="qbManuscript" title="原稿ペインの開閉">原稿</button>
+            <button class="qb" id="qbAutoMs" title="ONにするとAIの応答が自動で原稿ペインに追加されます">自動原稿</button>
             <button class="qb" id="btnOptimizePrompt" title="入力中の指示文をAIに最適化させる"><svg class="icon"><use href="#i-sparkle"/></svg> 最適化</button>
             <div class="dropdown">
               <button class="qb" id="qbInstructMenu">指示 <svg class="icon"><use href="#i-chevron-down"/></svg></button>
@@ -346,6 +347,7 @@
           <button id="btnMsAddScene" class="btn-ghost btn-sm">＋シーン</button>
           <button id="btnMsDel" class="btn-ghost btn-sm">削除</button>
           <button id="btnMsForeshadow" class="btn-ghost btn-sm">伏線チェック</button>
+          <button id="btnMsWrite" class="btn-ghost btn-sm">AI執筆</button>
           <button id="btnMsChart" class="btn-ghost btn-sm">グラフ</button>
         </div>
         <div class="ms-stats-row">
@@ -737,6 +739,6 @@
 <script src="/js/editor.bundle.js?v=2"></script>
 <script src="/js/marked.min.js?v=22"></script>
 <script src="/js/purify.min.js?v=22"></script>
-<script type="module" src="/js/app.js?v=35"></script>
+<script type="module" src="/js/app.js?v=36"></script>
 </body>
 </html>
