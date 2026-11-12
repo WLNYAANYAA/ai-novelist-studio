@@ -17,6 +17,7 @@ import { runDupCheck } from './lint.js';
 import { refreshPresets, saveProjectPreset, applyProjectPreset, clearProjectPreset, updatePresetStatus } from './presets.js';
 import { togglePin, toggleTimer, toggleBgm, toggleEars, setAiName, toggleVoice, toggleNeko, toggleSakura, toggleInfinite, onMoodChange, moodUp, cycleTheme, applyTheme, updateAiNameTag, syncFunButtons, updateTimerDisplay, restorePin, initSelectionPopup, renderQuickReplies, addQuickReply, toggleWritingMode, showOutline, openHistoryModal, toggleSidebar, toggleAutoMs } from './features.js';
 import { openMacroModal, armMacroRec, saveMacro, resetMacroForm, macroRecArmed, macros, comboFromEvent, runMacro, fireHotkey, syncGlobalHotkeys } from './macros.js';
+import { openFlowGen } from './flowgen.js';
 
 // ---------- Init ----------
 async function init() {
@@ -68,6 +69,7 @@ function bindUI() {
   $('btnMsAiParts').onclick = msShowAiParts;
   $('btnMsBoard').onclick = toggleMsBoard;
   $('btnMsVertical').onclick = toggleMsVertical;
+  $('btnMsFlow').onclick = openFlowGen;
   $('msGoal').onchange = e => msSetGoal(e.target.value);
   $('msSceneTitle').addEventListener('input', () => {
     const sc = msScene(); if (!sc) return;

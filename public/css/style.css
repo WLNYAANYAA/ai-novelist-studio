@@ -1144,3 +1144,21 @@ ruby rt { font-size: 0.55em; color: var(--text-dim); }
   resize: none;
 }
 #manuscriptPane.ms-vertical .ms-editor { min-height: 0; }
+
+/* ---------- 流れ生成 ---------- */
+.flow-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg-input); margin-bottom: 6px;
+}
+.flow-row .flow-text { flex: 1; min-width: 0; }
+.flow-row .flow-tokens { width: 90px; flex-shrink: 0; }
+.flow-row .flow-status { width: 52px; flex-shrink: 0; text-align: right; font-size: 11px; }
+.flow-row .flow-del {
+  flex-shrink: 0; width: 24px; height: 24px; border-radius: 8px;
+  border: 1px solid var(--border); background: transparent; color: var(--text-dim);
+  font-size: 13px; line-height: 1; cursor: pointer;
+}
+.flow-row .flow-del:hover { color: var(--danger); border-color: var(--danger); }
+#flowItems input { padding: 6px 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-panel); color: var(--text); font-size: 12.5px; font-family: inherit; outline: none; }
+#flowItems input:focus { border-color: var(--accent); }

@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>AI Novelist Studio</title>
-<link rel="stylesheet" href="/css/style.css?v=31">
+<link rel="stylesheet" href="/css/style.css?v=32">
 </head>
 <body>
 <script>document.documentElement.dataset.sidebar = localStorage.getItem('sidebar_collapsed') === '1' ? 'collapsed' : '';</script>
@@ -359,6 +359,7 @@
           <button id="btnMsAiParts" class="btn-ghost btn-sm">AI部分</button>
           <button id="btnMsChart" class="btn-ghost btn-sm">グラフ</button>
           <button id="btnMsBoard" class="btn-ghost btn-sm">ボード</button>
+          <button id="btnMsFlow" class="btn-ghost btn-sm" title="指示をトークン数付きでキューに溜め、チャンク単位で連続生成して原稿に流し込みます">流れ生成</button>
           <button id="btnMsVertical" class="btn-ghost btn-sm" title="原稿エディタを縦書き表示に切替">縦書</button>
         </div>
         <div class="ms-stats-row">
@@ -748,9 +749,43 @@
   </div>
 </div>
 
+<div id="flowModal" class="modal hidden">
+  <div class="modal-content" style="width:min(680px,94vw)">
+    <div class="modal-header">
+      <h2>流れ生成</h2>
+      <button class="modal-close" id="btnCloseFlow"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p class="hint">指示と目安トークン数を並べて登録します。合計がチャンクサイズを超えないように自動でまとめ、1チャンク＝1回の生成で連続執筆。各項目は原稿のシーンとして追加されます。</p>
+      <div class="params-row" style="gap:14px">
+        <label title="1回の生成で処理するトークン数の上限">チャンクサイズ
+          <input id="flowChunk" type="number" min="500" step="500" value="5000" style="width:110px">
+        </label>
+        <label style="flex:1" title="空欄なら現在選択中の章に追加。名前を入れるとその章（無ければ新規作成）に追加">章名
+          <input id="flowChapter" placeholder="空欄=現在の章">
+        </label>
+      </div>
+      <div id="flowItems" style="margin:10px 0"></div>
+      <button id="btnFlowAdd" class="btn-ghost btn-sm">＋ 項目を追加</button>
+      <div id="flowProgress" class="hidden" style="margin-top:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span id="flowStatusText" class="hint"></span>
+        </div>
+        <div class="ms-progress"><i id="flowBar"></i></div>
+        <div id="flowLog" class="hint" style="margin-top:8px;white-space:pre-wrap;max-height:160px;overflow-y:auto"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button id="btnFlowRun" class="btn-primary">生成開始</button>
+      <button id="btnFlowCancel" class="btn-ghost hidden">中断</button>
+      <button id="btnFlowClose" class="btn-ghost">閉じる</button>
+    </div>
+  </div>
+</div>
+
 <script src="/js/editor.bundle.js?v=4"></script>
 <script src="/js/marked.min.js?v=22"></script>
 <script src="/js/purify.min.js?v=22"></script>
-<script type="module" src="/js/app.js?v=36"></script>
+<script type="module" src="/js/app.js?v=37"></script>
 </body>
 </html>

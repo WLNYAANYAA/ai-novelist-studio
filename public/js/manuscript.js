@@ -287,6 +287,36 @@ function recordAiSnippet(sc, text) {
   if (sc.aiSnippets.length > 50) sc.aiSnippets = sc.aiSnippets.slice(-50);
 }
 
+// ---------- 流れ生成などからの一括シーン追加 ----------
+// chapterTitle 指定時はその名前の章を探し、無ければ新規作成。未指定なら選択中の章（無ければ先頭/新規）
+export function msAppendGenerated({ chapterTitle = '', sceneTitle = '', content = '', src = 'ai' } = {}) {
+  const t = (content || '').trim();
+  if (!t) return null;
+  if (!manuscript.chapters.length) {
+    manuscript.chapters.push({ id: msUid(), title: '第1章', scenes: [] });
+  }
+  let ch = null;
+  const want = (chapterTitle || '').trim();
+  if (want) ch = manuscript.chapters.find(c => c.title === want);
+  if (!ch) ch = want ? null : msChapter();
+  if (!ch) {
+    ch = { id: msUid(), title: want || `第${manuscript.chapters.length + 1}章`, scenes: [] };
+    manuscript.chapters.push(ch);
+  }
+  const sc = { id: msUid(), title: (sceneTitle || 'シーン').slice(0, 40), content: '' };
+  ch.scenes.push(sc);
+  sc.content = t;
+  if (src) recordAiSnippet(sc, t);
+  msSel.chapterId = ch.id;
+  msSel.sceneId = sc.id;
+  renderMsTree();
+  updateMsEditor();
+  scheduleMsSave();
+  $('manuscriptPane')?.classList.remove('hidden');
+  $('qbManuscript')?.classList.add('active');
+  return sc;
+}
+
 // ---------- シーンをAIに書かせる ----------
 export async function msAiWrite() {
   const sc = msScene();
