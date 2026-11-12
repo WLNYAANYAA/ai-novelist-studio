@@ -107,6 +107,11 @@ function composeSystemPrompt() {
   const parts = [];
   if (p.systemPrompt?.trim()) parts.push(applyVars(p.systemPrompt.trim()));
   if (p.stylePreset) parts.push(applyVars('文体指定: ' + p.stylePreset));
+  // 文体DNA（文体分析で保存した自動注入プロファイル）
+  try {
+    const dna = localStorage.getItem('style_dna');
+    if (dna && dna.trim()) parts.push('【文体DNA（この文体で執筆すること）】\n' + dna.trim());
+  } catch {}
   if (p.plot?.trim()) parts.push('【プロット】\n' + applyVars(p.plot.trim()));
   if (p.summary?.trim()) parts.push('【これまでのあらすじ（圧縮済み）】\n' + applyVars(p.summary.trim()));
   if (config.params.hybridMemory !== false) {

@@ -1,13 +1,22 @@
 // ---------- Documents（リッチテキストエディタのドキュメント） ----------
 import { $, convTitleEl } from './dom.js';
-import { api, esc, appAlert, appConfirm, appPrompt, fmtDate, downloadFile, icon } from './util.js';
-import { allDocs, setAllDocs } from './state.js';
+import { api, esc, appAlert, appConfirm, appPrompt, fmtDate, downloadFile, icon, showResultModal } from './util.js';
+import { allDocs, setAllDocs, allCards } from './state.js';
 import { activateTab, registerTabOpener, renderTabs, projectNamesAll, showDocView, closeTab, queueDraftSave, activeTabType } from './conversations.js';
+import { callApiOnce } from './context.js';
+import { runDocLint } from './lint.js';
 
 let currentDoc = null;   // {id,title,project,content,updated,...}
 let editor = null;       // TipTap Editor
 let loading = false;     // setContent中は保存を発火させない
 let saveTimer = null;
+
+// lint.js がドキュメント本文を拾えるように公開（原稿シーンが無い時のフォールバック）
+window.__docText = () => {
+  const pane = $('docPane');
+  if (!editor || !currentDoc || !pane || pane.classList.contains('hidden')) return '';
+  return editor.getText();
+};
 
 export async function refreshDocuments() {
   setAllDocs(await api('/api/documents'));
@@ -123,7 +132,14 @@ export async function deleteCurrentDocument() {
 function ensureEditor() {
   if (editor) return;
   editor = window.DocEditor.create($('docEditor'), {
-    placeholder: 'ここに本文を書きます…',
+    placeholder: 'ここに本文を書きます…（カード名は自動補完・Tabで確定）',
+    getNames: () => allCards.map(c => c.name).filter(Boolean),
+    onSuggest: (name, rest) => {
+      const el = $('docSuggest');
+      if (!el) return;
+      el.textContent = rest ? `Tabで補完: ${name}` : '';
+      el.title = rest || '';
+    },
     onUpdate: () => {
       if (loading) return;
       scheduleDocSave();
@@ -229,6 +245,55 @@ function updateToolbarState() {
   });
 }
 
+// ---------- AI連携 ----------
+async function aiContinueDoc() {
+  if (!currentDoc || !editor) return;
+  const text = editor.getText().trim();
+  if (text.length < 30) { appAlert('先に本文を30字以上入力してください'); return; }
+  const btn = $('btnDocContinue');
+  if (btn) btn.disabled = true;
+  updateDocStatus('AIが続きを生成中…');
+  try {
+    const { text: out } = await callApiOnce([
+      { role: 'system', content: 'あなたは小説家です。与えられた本文の直後に自然に続く文章だけを執筆してください。出力は本文のみ。説明・前置き・Markdown装飾・かぎ括弧の追加は不要です。文体・視点・トーン・一人称/三人称を本文に合わせてください。' },
+      { role: 'user', content: text.slice(-3000) }
+    ]);
+    const add = (out || '').trim();
+    if (!add) { updateDocStatus('生成結果が空でした'); return; }
+    const paras = add.split(/\n{2,}/)
+      .map(p => '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>')
+      .join('');
+    editor.chain().focus('end').insertContent('<p></p>').insertContent(paras).run();
+    updateDocStatus('AIの続きを末尾に追加しました（Ctrl+Zで取り消し可）');
+  } catch (e) {
+    updateDocStatus('生成失敗: ' + (e.message || e));
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function docConsistencyCheck() {
+  if (!currentDoc || !editor) return;
+  const text = editor.getText().trim();
+  if (text.length < 100) { appAlert('本文が短すぎます（100字以上必要です）'); return; }
+  const cardText = allCards
+    .filter(c => c.content)
+    .map(c => `【${c.name}】（${c.kind || 'term'}）\n${(c.content || '').slice(0, 1500)}`)
+    .join('\n\n')
+    .slice(0, 24000);
+  if (!cardText) { appAlert('カードがありません。カード管理で設定を登録するとチェックできます'); return; }
+  showResultModal('整合性チェック', '<p class="hint">AIがカード設定と本文を照合中…</p>');
+  try {
+    const { text: out } = await callApiOnce([
+      { role: 'system', content: 'あなたは小説の編集者です。設定カードと本文を照合し、矛盾・設定違反・不整合を指摘してください。指摘は箇条書きで「深刻度|箇所|問題点|修正案」の形式。問題がなければ「矛盾は見つかりませんでした」とだけ答えてください。' },
+      { role: 'user', content: `【設定カード】\n${cardText}\n\n【本文（末尾側を重点的に）】\n${text.slice(-12000)}` }
+    ]);
+    showResultModal('整合性チェック結果', `<div class="history-content" style="white-space:pre-wrap;line-height:1.8">${esc(out || '（応答なし）')}</div>`);
+  } catch (e) {
+    showResultModal('整合性チェック', `<p class="hint">失敗: ${esc(e.message || e)}</p>`);
+  }
+}
+
 function exportCurrentDocument() {
   if (!currentDoc || !editor) return;
   const title = ($('docTitle').value || '').trim() || currentDoc.title || '無題';
@@ -260,6 +325,9 @@ export function initDocEditor() {
   $('btnNewDoc').onclick = newDocument;
   $('btnDocDelete').onclick = deleteCurrentDocument;
   $('btnDocExport').onclick = exportCurrentDocument;
+  $('btnDocContinue') && ($('btnDocContinue').onclick = aiContinueDoc);
+  $('btnDocCheck') && ($('btnDocCheck').onclick = docConsistencyCheck);
+  $('btnDocLint') && ($('btnDocLint').onclick = runDocLint);
 }
 
 registerTabOpener('doc', openDocument);

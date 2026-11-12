@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>AI Novelist Studio</title>
-<link rel="stylesheet" href="/css/style.css?v=26">
+<link rel="stylesheet" href="/css/style.css?v=27">
 </head>
 <body>
 <script>document.documentElement.dataset.sidebar = localStorage.getItem('sidebar_collapsed') === '1' ? 'collapsed' : '';</script>
@@ -223,6 +223,10 @@
             <button class="menu-item qb" id="qbEmotion">感情曲線を分析</button>
             <button class="menu-item qb" id="qbCollect">伏線・用語を自動収集</button>
             <button class="menu-item qb" id="qbStyle">文体プロファイルを抽出</button>
+            <button class="menu-item qb" id="qbReaderSim">読者シミュレーター（3視点で感想）</button>
+            <button class="menu-item qb" id="qbBrainDump">ブレインダンプ → 構成案</button>
+            <button class="menu-item qb" id="qbDupCheck">表現チェック（繰り返し・単調さ）</button>
+            <button class="menu-item qb" id="qbForeshadowTrack">伏線トラッカー（回収管理）</button>
             <div class="menu-sep"></div>
             <button class="menu-item qb" id="qbAB">別展開でもう一案（A/B）</button>
             <button class="menu-item qb" id="qbSummary">あらすじを生成→メモに追加</button>
@@ -240,6 +244,7 @@
             <button class="menu-item qb" id="qbTheme">テーマ切替</button>
             <button class="menu-item qb" id="qbWritingMode">執筆モード（集中表示）</button>
             <button class="menu-item qb" id="qbLog">執筆ログ</button>
+            <button class="menu-item qb" id="qbClearDNA">文体DNAを解除</button>
             <div class="menu-sep"></div>
             <button class="menu-item qb" id="qbInfinite">無限生成（5回まで自動継続）</button>
             <button class="menu-item qb" id="qbNeko">にゃんモード</button>
@@ -305,9 +310,13 @@
         <div class="doc-meta">
           <input id="docTitle" type="text" placeholder="タイトル">
           <select id="docProject"><option value="">（プロジェクトなし）</option></select>
+          <span id="docSuggest" class="hint doc-suggest"></span>
           <span id="docStatus" class="hint"></span>
           <span class="doc-meta-actions">
-            <button id="btnDocExport" class="btn-ghost btn-sm">エクスポート</button>
+            <button id="btnDocContinue" class="btn-ghost btn-sm" title="本文の末尾にAIが続きを書き足します">AIに続きを書かせる</button>
+            <button id="btnDocCheck" class="btn-ghost btn-sm" title="カード設定と本文の矛盾をAIがチェック">整合性</button>
+            <button id="btnDocLint" class="btn-ghost btn-sm" title="表現の繰り返し・単調さを機械的にチェック">表現</button>
+            <button id="btnDocExport" class="btn-ghost btn-sm">出力</button>
             <button id="btnDocDelete" class="btn-ghost btn-sm">削除</button>
           </span>
         </div>
@@ -686,7 +695,26 @@
       <button id="btnStyleAnalyze" class="btn-primary">分析する</button>
       <button id="btnStyleSavePreset" class="btn-ghost hidden">文体プリセットに保存</button>
       <button id="btnStyleSaveCard" class="btn-ghost hidden">カードに追加</button>
+      <button id="btnStyleSaveDNA" class="btn-ghost hidden" title="この文体指示文を全会話のシステムプロンプトに自動注入">文体DNAとして保存</button>
       <span class="hint" id="styleStatus"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ブレインダンプ→構成案モーダル -->
+<div id="dumpModal" class="modal hidden">
+  <div class="modal-content" style="width:min(560px,92vw)">
+    <div class="modal-header">
+      <h2><svg class="icon"><use href="#i-sparkle"/></svg> ブレインダンプ → 構成案</h2>
+      <button class="modal-close" id="btnCloseDump"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p class="hint">思いついたアイデア・設定・シーンを雑に書き殴ってください。AIが構成案を3パターン（各案の強みと弱み付き）に整理します。</p>
+      <textarea id="dumpInput" rows="10" placeholder="例: 学園もの。主人公は人を殺せない刑事。相手は幼馴染。最後は雪の中で対決"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button id="btnDumpRun" class="btn-primary">構成案を作る</button>
+      <span class="hint" id="dumpStatus"></span>
     </div>
   </div>
 </div>
@@ -702,9 +730,9 @@
   </div>
 </div>
 
-<script src="/js/editor.bundle.js?v=1"></script>
+<script src="/js/editor.bundle.js?v=2"></script>
 <script src="/js/marked.min.js?v=22"></script>
 <script src="/js/purify.min.js?v=22"></script>
-<script type="module" src="/js/app.js?v=32"></script>
+<script type="module" src="/js/app.js?v=33"></script>
 </body>
 </html>

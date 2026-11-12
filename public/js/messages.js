@@ -1,9 +1,9 @@
 // ---------- Message rendering / スクロール / 文字数 / エクスポート ----------
-import { $, chatEl } from './dom.js';
+import { $, chatEl, inputEl } from './dom.js';
 import { esc, icon, appConfirm, appAlert, downloadFile } from './util.js';
 import { current, fun } from './state.js';
 import { saveConversation } from './conversations.js';
-import { regenerate, branchFrom, instructFrom, appendToMemo } from './chat.js';
+import { regenerate, branchFrom, instructFrom, appendToMemo, runCompletion } from './chat.js';
 import { adoptToManuscript } from './manuscript.js';
 import { saveStyle } from './ai-tools.js';
 import { toggleSpeak } from './features.js';
@@ -112,6 +112,39 @@ export function renderBotContent(el, text, reasoning) {
   }
 }
 
+// 会話をその時点まで巻き戻して再描画
+export function rerenderChat() {
+  clearChat();
+  if (current) for (const m of current.messages) renderMessage(m);
+  updateCharCount();
+  scrollChat(true);
+}
+
+// 「ここからやり直し」: 指定メッセージ以降を全て削除して巻き戻す
+export async function rewindTo(msgObj, el) {
+  if (!current) return;
+  const idx = current.messages.indexOf(msgObj);
+  if (idx < 0) return;
+  const n = current.messages.length - idx;
+  const label = msgObj.role === 'user' ? 'この指示と以降の全てのやり取り' : 'この応答と以降の全てのやり取り';
+  if (!(await appConfirm(`${label}（${n}件）を削除して、その時点に巻き戻しますか？`))) return;
+  if (msgObj.role === 'user') {
+    // ユーザー発言: 指示文を入力欄に戻して修正できるようにする
+    inputEl.value = msgObj.content || '';
+    inputEl.dispatchEvent(new Event('input'));
+    current.messages.length = idx;
+    rerenderChat();
+    saveConversation();
+    inputEl.focus();
+  } else {
+    // AI応答: その応答以降を削除し、直前のユーザー発言への応答を即再生成
+    current.messages.length = idx;
+    rerenderChat();
+    saveConversation();
+    await runCompletion();
+  }
+}
+
 // メッセージ削除（user/assistant共通）
 function removeMessage(m, el) {
   if (!current) return;
@@ -136,6 +169,7 @@ export function addUserActions(el, msgObj) {
       setTimeout(() => actions.querySelector('button').innerHTML = icon('copy') + ' コピー', 1500);
     });
   });
+  mk('やり直し', 'refresh', () => rewindTo(msgObj, el), 'この指示と以降を削除して入力欄に戻す（修正して送り直せる）');
   mk('削除', 'close', async () => {
     if (await appConfirm('このメッセージを削除しますか？（以降の会話には影響しません）')) removeMessage(msgObj, el);
   });
@@ -161,6 +195,7 @@ export function addBotActions(el, msgObj, msgIndex) {
   mk('再生成', 'refresh', () => regenerate(el), 'この応答を作り直す');
   mk('分岐', 'branch', () => branchFrom(msgObj), 'この応答までの会話をコピーして新しい会話にする');
   mk('指示', 'edit', () => instructFrom(msgObj), 'AIに修正・追加の指示を出す');
+  mk('ここからやり直し', 'refresh', () => rewindTo(msgObj, el), 'この応答と以降を削除して再生成');
   mk('読み上げ', 'volume', () => toggleSpeak(msgObj.content), 'この応答を音声で読み上げ');
   mk('原稿', 'book', () => adoptToManuscript(msgObj.content), 'この応答を原稿ペインに追加');
   if (msgObj._summary) {

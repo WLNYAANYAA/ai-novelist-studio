@@ -1,7 +1,7 @@
 // ---------- AIツール（パイプライン/別案/感情分析/自動収集/文体/執筆ログ） ----------
 import { $ } from './dom.js';
-import { api, esc, appAlert, appPrompt } from './util.js';
-import { current, busy, setPendingStyle, CARD_KINDS } from './state.js';
+import { api, esc, appAlert, appPrompt, showResultModal } from './util.js';
+import { current, busy, setPendingStyle, CARD_KINDS, allCards } from './state.js';
 import { sendInstruction, composeSystemPrompt, contextMessages, apiWarnMissing, setBusy, captureSnapshot } from './chat.js';
 import { callApiOnce, convTranscript } from './context.js';
 import { addBotMsg, renderBotContent, addBotActions, updateCharCount, mdRender, scrollChat } from './messages.js';
@@ -298,6 +298,7 @@ export function openStyleAnalyzer() {
   $('styleResult').innerHTML = '';
   $('btnStyleSavePreset').classList.add('hidden');
   $('btnStyleSaveCard').classList.add('hidden');
+  $('btnStyleSaveDNA')?.classList.add('hidden');
   $('styleStatus').textContent = '';
 }
 
@@ -349,6 +350,7 @@ export async function runStyleAnalysis() {
       `<div class="history-content" style="max-height:260px;margin-top:6px;white-space:pre-wrap">${esc(paramsPart)}</div></details>`;
     $('btnStyleSavePreset').classList.remove('hidden');
     $('btnStyleSaveCard').classList.remove('hidden');
+    $('btnStyleSaveDNA')?.classList.remove('hidden');
     $('styleStatus').textContent = '';
   } catch (e) {
     $('styleStatus').textContent = '';
@@ -375,4 +377,109 @@ export async function saveStyleAnalysisAsCard() {
   });
   await refreshCards();
   appAlert('カードに追加しました。「この会話で使うカード」から選択すると文体指入文が注入されます');
+}
+
+// ---------- 文体DNA（分析結果を全会話のシステムプロンプトに自動注入） ----------
+export function styleDnaText() {
+  try { return localStorage.getItem('style_dna') || ''; } catch { return ''; }
+}
+export function saveStyleDNA() {
+  const t = (styleDirective || styleFullText || '').trim();
+  if (!t) { appAlert('先に文体分析を実行してください'); return; }
+  localStorage.setItem('style_dna', t.slice(0, 4000));
+  appAlert('文体DNAを保存しました。以降の全会話のシステムプロンプトに自動注入されます（設定で解除は「文体DNAを解除」）');
+}
+export function clearStyleDNA() {
+  localStorage.removeItem('style_dna');
+  appAlert('文体DNAを解除しました');
+}
+export function hasStyleDNA() { return !!styleDnaText(); }
+
+// ---------- 読者シミュレーター ----------
+const READERS = [
+  ['📖 ライトノベル読者（10〜20代・娯楽性とテンポ重視）', 'あなたはライトノベルを毎月何冊も買う10〜20代の読者です。面白さ・キャラの魅力・テンポを最優先で評価し、正直な感想を述べます。'],
+  ['✒️ 文学青年（30代・文体とテーマ重視）', 'あなたは純文学からエンタメまで読み漁る30代の読者です。文体の美しさ・テーマの深さ・余白の味わいを重視して評価します。'],
+  ['🖊️ 書籍編集者（プロの目・売れるかどうか）', 'あなたは小説編集者です。読者の心を掴むか・続きが読みたくなるか・市場で売れるかを冷静かつ的確に評価します。']
+];
+export async function readerSimulate() {
+  if (!current || busy) return;
+  if (apiWarnMissing()) return;
+  // 対象テキスト: 原稿シーン優先、なければ直近のAI応答
+  let srcLabel = '', text = '';
+  const sc = msScene();
+  if (sc && (sc.content || '').trim().length > 80) {
+    srcLabel = `原稿「${sc.title}」`; text = sc.content;
+  } else {
+    for (let i = current.messages.length - 1; i >= 0; i--) {
+      const m = current.messages[i];
+      if (m.role === 'assistant' && (m.content || '').length > 80) { srcLabel = '直近のAI応答'; text = m.content; break; }
+    }
+  }
+  if (!text.trim()) { appAlert('分析対象の本文がありません'); return; }
+  setBusy(true);
+  try {
+    const sample = text.slice(0, 6000);
+    const jobs = READERS.map(([label, persona]) =>
+      callApiOnce([
+        { role: 'system', content: `${persona}\n\n以下の小説本文を読み、率直な読者としての感想を300字以内で述べてください。良い点・物足りない点・続きを読みたいかどうかを含めてください。` },
+        { role: 'user', content: `【${srcLabel}】\n${sample}` }
+      ]).then(r => ({ label, text: (r.text || '').trim() })).catch(e => ({ label, text: '（失敗: ' + e.message + '）' }))
+    );
+    const results = await Promise.all(jobs);
+    const cols = results.map(r =>
+      `<div class="reader-col"><h4 style="margin:0 0 8px;font-size:14px">${esc(r.label)}</h4><div class="history-content" style="white-space:pre-wrap;font-size:13px;line-height:1.8">${esc(r.text)}</div></div>`
+    ).join('');
+    showResultModal(`読者シミュレーター — ${srcLabel}`, `<div class="reader-grid">${cols}</div>`);
+  } finally { setBusy(false); }
+}
+
+// ---------- ブレインダンプ → 構成案 ----------
+export function openBrainDump() { $('dumpModal').classList.remove('hidden'); $('dumpInput').focus(); }
+export async function runBrainDump() {
+  const dump = ($('dumpInput').value || '').trim();
+  if (!dump) { appAlert('アイデアを書き殴ってください'); return; }
+  if (apiWarnMissing()) return;
+  const btn = $('btnDumpRun');
+  btn.disabled = true;
+  $('dumpStatus').textContent = '構成案を生成中…';
+  try {
+    const { text } = await callApiOnce([
+      { role: 'system', content: 'あなたは小説の構成作家です。ユーザーのブレインダンプを読み、小説の構成案を3パターン提案してください。各案は「タイトル案/あらすじ3行/3幕構成の要点/この案の強み/この案の弱み」の形式で。全体で1200字以内。' },
+      { role: 'user', content: dump.slice(0, 8000) }
+    ]);
+    $('dumpModal').classList.add('hidden');
+    showResultModal('構成案（3パターン）', `<div class="history-content" style="white-space:pre-wrap;line-height:1.9">${esc(text || '（応答なし）')}</div>`);
+  } catch (e) {
+    $('dumpStatus').textContent = '';
+    appAlert('生成に失敗しました: ' + (e.message || e));
+  } finally { btn.disabled = false; $('dumpStatus').textContent = ''; }
+}
+
+// ---------- 伏線トラッカー（回収管理） ----------
+export async function foreshadowTracker() {
+  if (!current) { appAlert('会話を選択してください'); return; }
+  const fws = allCards.filter(c => c.kind === 'foreshadow');
+  if (!fws.length) { appAlert('伏線カードがありません。カード管理で種別「伏線」のカードを作成するか、「伏線・用語を自動収集」を使ってください'); return; }
+  const unresolved = fws.filter(c => !c.resolved);
+  const resolved = fws.filter(c => c.resolved);
+  const row = (c) => `
+    <div class="collect-item" data-id="${esc(c.id)}">
+      <span class="card-kind">伏線</span> <strong>${esc(c.name)}</strong>
+      ${c.resolved ? '<span class="hint">（回収済）</span>' : ''}
+      <div class="hint" style="margin:4px 0">${esc((c.content || '').slice(0, 160))}</div>
+      <button class="btn-ghost btn-sm" data-act="${c.resolved ? 'unresolve' : 'resolve'}">${c.resolved ? '未回収に戻す' : '回収済みにする'}</button>
+    </div>`;
+  showResultModal(`伏線トラッカー — 未回収 ${unresolved.length}件 / 回収済 ${resolved.length}件`,
+    (unresolved.length ? '<h4 style="margin:8px 0">未回収</h4>' + unresolved.map(row).join('') : '<p class="hint">未回収の伏線はありません</p>') +
+    (resolved.length ? '<h4 style="margin:16px 0 8px">回収済み</h4>' + resolved.map(row).join('') : ''));
+  $('resultBody').querySelectorAll('[data-act]').forEach(b => {
+    b.onclick = async () => {
+      const id = b.closest('.collect-item').dataset.id;
+      const card = allCards.find(c => String(c.id) === id);
+      if (!card) return;
+      await api('/api/cards/' + card.id, { method: 'PUT', body: JSON.stringify({ resolved: b.dataset.act === 'resolve' }) });
+      await refreshCards();
+      foreshadowTracker();
+    };
+  });
 }

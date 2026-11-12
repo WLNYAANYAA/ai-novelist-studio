@@ -1,4 +1,4 @@
-var DocEditorNS = (() => {
+(() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
   var __esm = (fn, res, err) => function __init() {
     if (err) throw err[0];
@@ -20554,11 +20554,101 @@ img.ProseMirror-separator {
   var require_index = __commonJS({
     "editor/index.js"() {
       init_dist16();
+      init_dist5();
+      init_dist7();
       init_dist42();
       init_dist43();
       init_dist44();
       init_dist45();
-      function createEditor(el, { content = "", placeholder = "", onUpdate = null } = {}) {
+      var AssistKey = new PluginKey("writerAssist");
+      function computeSuggestion(state, getNames) {
+        const { $head } = state.selection;
+        if (!$head.parent || !$head.parent.isTextblock) return null;
+        const blockStart = $head.start();
+        const before = state.doc.textBetween(blockStart, $head.pos, " ", " ").slice(-30);
+        if (before.trim().length < 2) return null;
+        const names = (typeof getNames === "function" ? getNames() : []) || [];
+        let best = null;
+        for (const raw of names) {
+          const n = String(raw || "").trim();
+          if (n.length < 3) continue;
+          const maxLen = Math.min(before.length, n.length - 1);
+          for (let len = maxLen; len >= 2; len--) {
+            const suf = before.slice(-len);
+            if (n.startsWith(suf)) {
+              const rest = n.slice(len);
+              if (!rest) break;
+              const score = len * 1e3 - n.length;
+              if (!best || score > best.score) best = { remainder: rest, pos: $head.pos, score, name: n };
+              break;
+            }
+          }
+        }
+        return best;
+      }
+      function makeGhostWidget(text) {
+        const span = document.createElement("span");
+        span.className = "ghost-suggest";
+        span.textContent = text;
+        return span;
+      }
+      function WriterAssist(opts) {
+        return Extension.create({
+          name: "writerAssist",
+          addOptions() {
+            return { getNames: () => [], onSuggest: null };
+          },
+          addProseMirrorPlugins() {
+            const o = this.options;
+            return [new Plugin({
+              key: AssistKey,
+              state: {
+                init: () => DecorationSet.empty,
+                apply(tr2, old) {
+                  const { newState } = tr2;
+                  if (!tr2.docChanged && !tr2.selectionSet) return old.map(tr2.mapping, newState.doc);
+                  const sug = computeSuggestion(newState, o.getNames);
+                  if (!sug) return DecorationSet.empty;
+                  const decos = [Decoration.widget(sug.pos, () => makeGhostWidget(sug.remainder), { side: 1, key: "ghost" })];
+                  return DecorationSet.create(newState.doc, decos);
+                }
+              },
+              props: {
+                decorations(state) {
+                  return this.getState(state);
+                },
+                handleKeyDown(view, event) {
+                  if (event.key !== "Tab") return false;
+                  const sug = computeSuggestion(view.state, o.getNames);
+                  if (!sug) return false;
+                  event.preventDefault();
+                  view.dispatch(view.state.tr.insertText(sug.remainder));
+                  view.focus();
+                  return true;
+                }
+              },
+              view(editorView) {
+                let last = "";
+                const notify = () => {
+                  const s = computeSuggestion(editorView.state, o.getNames);
+                  const cur = s ? s.remainder : "";
+                  if (cur !== last) {
+                    last = cur;
+                    if (o.onSuggest) o.onSuggest(s ? s.name : "", s ? s.remainder : "");
+                  }
+                };
+                editorView.dom.addEventListener("keyup", notify);
+                editorView.dom.addEventListener("click", notify);
+                return { destroy() {
+                  editorView.dom.removeEventListener("keyup", notify);
+                  editorView.dom.removeEventListener("click", notify);
+                } };
+              }
+            })];
+          }
+        });
+      }
+      function createEditor(el, { content = "", placeholder = "", onUpdate = null, getNames = null, onSuggest = null } = {}) {
         const editor = new Editor({
           element: el,
           extensions: [
@@ -20568,7 +20658,8 @@ img.ProseMirror-separator {
             }),
             Underline,
             Link.configure({ openOnClick: false, autolink: true, linkOnPaste: true, HTMLAttributes: { rel: "noopener noreferrer" } }),
-            Placeholder.configure({ placeholder })
+            Placeholder.configure({ placeholder }),
+            WriterAssist.configure({ getNames: getNames || (() => []), onSuggest })
           ],
           content,
           onUpdate: ({ editor: editor2 }) => {
@@ -20580,5 +20671,5 @@ img.ProseMirror-separator {
       window.DocEditor = { create: createEditor, Editor };
     }
   });
-  return require_index();
+  require_index();
 })();

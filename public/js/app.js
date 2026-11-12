@@ -12,7 +12,8 @@ import { compressContext } from './context.js';
 import { updateTagSug, hideTagSug, tagSugKey } from './tags.js';
 import { openSettings, saveSettings, updateModelHint, PROVIDER_URLS, openTplModal, saveTpl, resetTplForm, deleteTpl, optimizePrompt, renderPresetMenu, syncPresetState, savePreset } from './settings.js';
 import { openCardsModal, openCardPicker, saveCard, resetCardForm, deleteCard, saveCardPick } from './cards.js';
-import { runPipeline, genVariants, analyzeEmotion, collectTerms, extractStyle, showWritingLog, refreshStyleOptions, openStyleAnalyzer, fillStyleSample, runStyleAnalysis, saveStyleAnalysisAsPreset, saveStyleAnalysisAsCard } from './ai-tools.js';
+import { runPipeline, genVariants, analyzeEmotion, collectTerms, extractStyle, showWritingLog, refreshStyleOptions, openStyleAnalyzer, fillStyleSample, runStyleAnalysis, saveStyleAnalysisAsPreset, saveStyleAnalysisAsCard, saveStyleDNA, clearStyleDNA, readerSimulate, openBrainDump, runBrainDump, foreshadowTracker } from './ai-tools.js';
+import { runDupCheck } from './lint.js';
 import { togglePin, toggleTimer, toggleBgm, toggleEars, setAiName, toggleVoice, toggleNeko, toggleSakura, toggleInfinite, onMoodChange, moodUp, cycleTheme, applyTheme, updateAiNameTag, syncFunButtons, updateTimerDisplay, restorePin, initSelectionPopup, renderQuickReplies, addQuickReply, toggleWritingMode, showOutline, openHistoryModal, toggleSidebar } from './features.js';
 import { openMacroModal, armMacroRec, saveMacro, resetMacroForm, macroRecArmed, macros, comboFromEvent, runMacro, fireHotkey, syncGlobalHotkeys } from './macros.js';
 
@@ -162,6 +163,14 @@ function bindUI() {
   $('btnStyleAnalyze').onclick = runStyleAnalysis;
   $('btnStyleSavePreset').onclick = saveStyleAnalysisAsPreset;
   $('btnStyleSaveCard').onclick = saveStyleAnalysisAsCard;
+  $('btnStyleSaveDNA').onclick = saveStyleDNA;
+  $('qbReaderSim').onclick = readerSimulate;
+  $('qbBrainDump').onclick = openBrainDump;
+  $('qbDupCheck').onclick = runDupCheck;
+  $('qbForeshadowTrack').onclick = foreshadowTracker;
+  $('btnDumpRun').onclick = runBrainDump;
+  $('btnCloseDump').onclick = () => $('dumpModal').classList.add('hidden');
+  $('dumpModal').addEventListener('click', (e) => { if (e.target === $('dumpModal')) $('dumpModal').classList.add('hidden'); });
   $('btnQuickReplyAdd').onclick = addQuickReply;
   $('qbPipeline').onclick = runPipeline;
   $('qbVariants').onclick = () => genVariants(3);
@@ -169,6 +178,7 @@ function bindUI() {
   $('qbCollect').onclick = collectTerms;
   $('qbStyle').onclick = extractStyle;
   $('qbWritingMode').onclick = toggleWritingMode;
+  $('qbClearDNA').onclick = clearStyleDNA;
   $('btnExitWriting').onclick = toggleWritingMode;
   $('qbLog').onclick = showWritingLog;
   $('btnCloseResult').onclick = () => $('resultModal').classList.add('hidden');
