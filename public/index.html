@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>AI Novelist Studio</title>
-<link rel="stylesheet" href="/css/style.css?v=27">
+<link rel="stylesheet" href="/css/style.css?v=28">
 </head>
 <body>
 <script>document.documentElement.dataset.sidebar = localStorage.getItem('sidebar_collapsed') === '1' ? 'collapsed' : '';</script>
@@ -107,8 +107,8 @@
     <div id="docSection">
       <div class="doc-section-head">
         <span class="doc-section-title">ドキュメント</span>
-        <button id="btnNewDoc" class="btn-ghost btn-sm" title="新しいドキュメント（リッチテキスト）"><svg class="icon"><use href="#i-plus"/></svg></button>
       </div>
+      <button id="btnNewDoc" class="doc-new-btn" title="新しいドキュメント（リッチテキスト）"><svg class="icon"><use href="#i-plus"/></svg><span>新しいドキュメント</span></button>
       <div id="docList"></div>
     </div>
     <div id="searchResults" class="hidden"></div>

@@ -1,7 +1,7 @@
 {
   "name": "ai-novelist-studio",
   "productName": "AI Novelist Studio",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "description": "AIのべりすと API を使った小説執筆・チャットツール",
   "main": "main.js",
   "scripts": {
@@ -10,7 +10,7 @@
     "desktop": "electron .",
     "icon": "node scripts/make-icon.js",
     "setup:readability": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-readability.ps1",
-    "build:editor": "esbuild editor/index.js --bundle --format=iife --global-name=DocEditorNS --outfile=public/js/editor.bundle.js",
+    "build:editor": "esbuild editor/index.js --bundle --format=iife --outfile=public/js/editor.bundle.js",
     "dist": "electron-builder --win"
   },
   "build": {
