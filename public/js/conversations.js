@@ -1,6 +1,6 @@
 // ---------- Conversations（一覧・タブ・下書き・検索・プロフィールパネル） ----------
 import { $, chatEl, inputEl, convListEl, convTitleEl, tokenBadgeEl, searchBox, searchResultsEl } from './dom.js';
-import { api, esc, icon, fmtDate, appConfirm, appPrompt } from './util.js';
+import { api, esc, icon, fmtDate, appAlert, appConfirm, appPrompt } from './util.js';
 import { current, setCurrent, allSources, allDocs, draftKey } from './state.js';
 import { clearChat, renderMessage, scrollChat, updateCharCount } from './messages.js';
 import { updateTokenBadge } from './chat.js';
@@ -151,7 +151,7 @@ export function renderConvList() {
   });
   visibleConvs.forEach((c, idx) => {
     const div = document.createElement('div');
-    div.className = 'conv-item' + (current && c.id === current.id ? ' active' : '') + (selectedConvs.has(c.id) ? ' selected' : '');
+    div.className = 'conv-item' + (current && c.id === current.id && activeTabType === 'conv' ? ' active' : '') + (selectedConvs.has(c.id) ? ' selected' : '');
     div.innerHTML = `<div class="title"></div><div class="meta"></div>`;
     div.querySelector('.title').textContent = c.title;
     div.querySelector('.meta').textContent = `${c.project ? '📁' + c.project + ' · ' : ''}${c.messageCount} msgs · ${fmtDate(c.updated)}`;
@@ -302,7 +302,7 @@ export async function closeTab(tab) {
   if (idx < 0) return;
   tabs.splice(idx, 1);
   if (isActiveTab(tab)) {
-    if (tab.type === 'conv') saveDraft(); // 閉じるタブの下書きを保存
+    if (current) saveDraft(); // 閉じるタブに関係なく、表示中の会話の下書きを保存
     activeTabType = 'conv'; activeTabId = null;
     setCurrent(null);
     clearChat();
@@ -342,7 +342,16 @@ export async function openConversation(id) {
 
 export async function loadConv(id) {
   showChatView();
-  setCurrent(await api('/api/conversations/' + id));
+  let conv;
+  try {
+    conv = await api('/api/conversations/' + id);
+  } catch {
+    appAlert('会話が見つかりません（削除された可能性があります）');
+    closeTab({ type: 'conv', id });
+    await refreshConvList();
+    return;
+  }
+  setCurrent(conv);
   current.profile = current.profile || {};
   current.cardIds = current.cardIds || [];
   current.snapshots = current.snapshots || [];
@@ -405,6 +414,7 @@ export async function duplicateConversation(c) {
       messages: c.messages,
       profile: c.profile,
       cardIds: c.cardIds,
+      sceneId: c.sceneId || '',
       totalTokens: { input: 0, output: 0 }
     })
   });
@@ -437,16 +447,20 @@ function loadProfileToPanel() {
   if (curProj && !pnames.includes(curProj)) pproj.add(new Option(curProj, curProj));
   pproj.value = curProj;
   // 対象シーン選択（原稿ペインのシーン一覧から。window.__msScenes は manuscript.js が公開）
-  const ssel = $('pScene');
-  if (ssel) {
-    const scenes = window.__msScenes ? window.__msScenes() : [];
-    ssel.innerHTML = '<option value="">（なし）</option>' +
-      scenes.map(s => `<option value="${esc(s.id)}">${esc(s.label)}</option>`).join('');
-    ssel.value = current?.sceneId || '';
-  }
+  refreshSceneSelect();
   updatePresetStatus();
 }
 export { loadProfileToPanel };
+// 対象シーン選択肢を再構築（シーン追加/削除後やパネルを開いた時に呼ぶ）
+export function refreshSceneSelect() {
+  const ssel = $('pScene');
+  if (!ssel) return;
+  const scenes = window.__msScenes ? window.__msScenes() : [];
+  const cur = ssel.value || current?.sceneId || '';
+  ssel.innerHTML = '<option value="">（なし）</option>' +
+    scenes.map(s => `<option value="${esc(s.id)}">${esc(s.label)}</option>`).join('');
+  ssel.value = scenes.some(s => s.id === cur) ? cur : (current?.sceneId && scenes.some(s => s.id === current.sceneId) ? current.sceneId : '');
+}
 export async function saveProfile() {
   if (!current) return;
   let proj = $('pProject').value;
@@ -463,7 +477,8 @@ export async function saveProfile() {
     worldMemo: $('pWorldMemo').value,
     plot: $('pPlot').value,
     stylePreset: $('pStylePreset').value,
-    sourceProject: $('pSourceProject').value
+    sourceProject: $('pSourceProject').value,
+    useSources: $('pSourceProject').value === '__all'
   };
   saveConversation().then(() => {
     $('profileSaved').textContent = '保存しました';
@@ -473,13 +488,16 @@ export async function saveProfile() {
 
 // ---------- Search ----------
 let searchTimer = null;
+let searchSeq = 0;
 export function onSearchInput() {
   clearTimeout(searchTimer);
   const q = searchBox.value.trim();
   renderConvList(); // タイトル部分一致で即時フィルタ
   if (!q) { searchResultsEl.classList.add('hidden'); return; }
+  const seq = ++searchSeq;
   searchTimer = setTimeout(async () => {
     const results = await api('/api/search?q=' + encodeURIComponent(q));
+    if (seq !== searchSeq || searchBox.value.trim() !== q) return; // 古い応答は破棄
     searchResultsEl.innerHTML = '';
     if (!results.length) {
       searchResultsEl.innerHTML = '<div class="search-item hint">本文中の一致なし</div>';
@@ -496,7 +514,10 @@ export function onSearchInput() {
       div.onclick = async () => {
         searchBox.value = '';
         if (r.kind === 'doc') { window.__openDocument?.(r.id); return; }
-        if (r.kind === 'scene') { if (window.__openScene?.(r.id)) return; }
+        if (r.kind === 'scene') {
+          if (!window.__openScene?.(r.id)) appAlert('シーンが見つかりません（削除された可能性があります）');
+          return;
+        }
         if (r.kind === 'source') { window.__openSources?.(); return; }
         await openConversation(r.id);
       };
@@ -516,7 +537,9 @@ export async function restoreTabs() {
       (typeof x === 'string' && x.startsWith('d:'))
         ? { type: 'doc', id: x.slice(2) }
         : { type: 'conv', id: x });
-    const valid = parsed.filter(t => t.type === 'doc' || conversations.some(c => c.id === t.id));
+    const valid = parsed.filter(t =>
+      t.type === 'doc' ? allDocs.some(d => d.id === t.id)
+      : conversations.some(c => c.id === t.id));
     if (valid.length) {
       tabs = valid;
       const active = valid.find(t => tabKey(t) === savedActive) || valid[0];

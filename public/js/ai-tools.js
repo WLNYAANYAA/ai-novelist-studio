@@ -4,7 +4,7 @@ import { api, esc, appAlert, appPrompt, showResultModal } from './util.js';
 import { current, busy, setPendingStyle, CARD_KINDS, allCards } from './state.js';
 import { sendInstruction, composeSystemPrompt, contextMessages, apiWarnMissing, setBusy, captureSnapshot } from './chat.js';
 import { callApiOnce, convTranscript } from './context.js';
-import { addBotMsg, renderBotContent, addBotActions, updateCharCount, mdRender, scrollChat } from './messages.js';
+import { addBotMsg, renderBotContent, addBotActions, updateCharCount, mdRender, scrollChat, clearChat, renderMessage } from './messages.js';
 import { saveConversation, renderConvList } from './conversations.js';
 import { refreshCards } from './cards.js';
 import { msScene } from './manuscript.js';
@@ -50,8 +50,12 @@ export async function genVariants(n = 3) {
     if (m.role === 'user') break;
   }
   if (idx < 0) { appAlert('別案の対象となるAI応答がありません'); return; }
+  captureSnapshot('別案生成前'); // スプライス前に退避（キャンセル時も版履歴から復元可能）
   current.messages.splice(idx, 1);
-  captureSnapshot('別案生成前');
+  clearChat(); // DOMとデータを同期（残った古い応答ノードを除去）
+  for (const m of current.messages) renderMessage(m);
+  scrollChat();
+  saveConversation();
   setBusy(true);
   try {
     const sys = composeSystemPrompt();

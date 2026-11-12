@@ -20618,6 +20618,7 @@ img.ProseMirror-separator {
                 },
                 handleKeyDown(view, event) {
                   if (event.key !== "Tab") return false;
+                  if (!view.state.selection.empty) return false;
                   const sug = computeSuggestion(view.state, o.getNames);
                   if (!sug) return false;
                   event.preventDefault();
@@ -20638,10 +20639,16 @@ img.ProseMirror-separator {
                 };
                 editorView.dom.addEventListener("keyup", notify);
                 editorView.dom.addEventListener("click", notify);
-                return { destroy() {
-                  editorView.dom.removeEventListener("keyup", notify);
-                  editorView.dom.removeEventListener("click", notify);
-                } };
+                return {
+                  // undo/redo・ツールバー操作・setContent等でもサジェスト表示を更新
+                  update(view, prevState) {
+                    if (view.state.doc !== prevState.doc || view.state.selection !== prevState.selection) notify();
+                  },
+                  destroy() {
+                    editorView.dom.removeEventListener("keyup", notify);
+                    editorView.dom.removeEventListener("click", notify);
+                  }
+                };
               }
             })];
           }
@@ -20650,14 +20657,20 @@ img.ProseMirror-separator {
       var Ruby = Mark2.create({
         name: "ruby",
         addAttributes() {
-          return { reading: { default: "" } };
+          return {
+            reading: {
+              default: "",
+              rendered: false,
+              // HTML属性には出さず <rt> から復元する
+              parseHTML: (el) => el.querySelector("rt")?.textContent || ""
+            }
+          };
         },
         parseHTML() {
           return [{ tag: "ruby", contentElement: "rb" }];
         },
-        renderHTML({ HTMLAttributes }) {
-          const { reading, ...rest } = HTMLAttributes;
-          return ["ruby", rest, ["rb", {}, 0], ["rt", {}, reading || ""]];
+        renderHTML({ mark }) {
+          return ["ruby", {}, ["rb", {}, 0], ["rt", {}, mark.attrs.reading || ""]];
         }
       });
       var EmphasisDots = Mark2.create({

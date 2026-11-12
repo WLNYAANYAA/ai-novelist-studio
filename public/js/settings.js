@@ -64,7 +64,12 @@ export function openSettings() {
       ? '注意: ACCESS_TOKENが未設定のためLAN公開は無効です（このPCのみ）'
       : (config.lanUrl ? `スマホ等からはこのURLで開けます: ${config.lanUrl}` : 'LAN公開中（IPアドレスを取得できませんでした）'))
     : 'LAN公開はOFF（このPCのみ）';
-  $('sStylePreset').value = Object.keys(STYLE_PRESETS).find(k => STYLE_PRESETS[k] === (config.stylePreset || '')) || '';
+  // 標準プリセット→カスタム文体（value=本文）の順で一致を探す
+  const sp = config.stylePreset || '';
+  let customHit = false;
+  try { customHit = (JSON.parse(localStorage.getItem('custom_styles') || '[]') || []).some(s => s.text === sp); } catch {}
+  $('sStylePreset').value = Object.keys(STYLE_PRESETS).find(k => STYLE_PRESETS[k] === sp)
+    || (sp && customHit ? sp : '');
   for (const [elId, key] of ADV_FIELDS) {
     $(elId).value = config.params[key] ?? '';
   }
@@ -116,7 +121,7 @@ export async function saveSettings() {
     lanAccess: $('sLanAccess').checked,
     systemPrompt: $('sSystemPrompt').value,
     worldMemo: $('sWorldMemo').value,
-    stylePreset: STYLE_PRESETS[$('sStylePreset').value] || ''
+    stylePreset: (() => { const v = $('sStylePreset').value; return STYLE_PRESETS[v] || v || ''; })()
   };
   for (const [elId, key] of ADV_FIELDS) {
     const v = $(elId).value.trim();

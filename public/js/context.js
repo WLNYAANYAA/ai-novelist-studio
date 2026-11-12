@@ -117,13 +117,13 @@ export async function compressAgedMemories(conv = current) {
   if (!pending.length) return;
   conv.profile = conv.profile || {};
   const mems = Array.isArray(conv.profile.memories) ? conv.profile.memories.slice() : [];
-  // 保持枠を超える古い交換はメモリを作らず _mem のみ付与（忘却）
-  const keepFrom = Math.max(0, pending.length - Math.max(0, MEM_KEEP - mems.length));
-  let made = 0, dropped = 0;
-  for (let ei = 0; ei < pending.length && made < MEM_KEEP; ei++) {
+  // 1回の生成で圧縮するのは最大3交換。メモリが一杯なら最古を押し出して新しい記憶を作る（凍結しない）。
+  // 圧縮しなかった交換は _mem を付けず次回に持ち越す
+  const MAX_PER_RUN = 3;
+  let made = 0;
+  for (let ei = 0; ei < pending.length && made < MAX_PER_RUN; ei++) {
     const [a, b] = pending[ei];
     const rangeMsgs = msgs.slice(a, b + 1);
-    if (ei < keepFrom) { rangeMsgs.forEach(m => { m._mem = true; }); dropped++; continue; }
     const transcript = rangeMsgs.map(m =>
       `${m.role === 'user' ? '【ユーザー】' : '【AI】'}\n${(m.content || '').slice(0, 1500)}`
     ).join('\n\n').slice(0, 12000);
@@ -141,7 +141,7 @@ export async function compressAgedMemories(conv = current) {
       made++;
     } catch { break; } // 圧縮失敗時は次回の生成後に再試行
   }
-  if (made || dropped) saveConversation(conv);
+  if (made) saveConversation(conv);
 }
 
 export function convTranscript(maxChars = 45000) {

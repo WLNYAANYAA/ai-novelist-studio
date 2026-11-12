@@ -1,8 +1,8 @@
 // ---------- 流れ生成：指示キューをトークン数でチャンク化し、連続で原稿に流し込む ----------
 import { $ } from './dom.js';
-import { appAlert, esc } from './util.js';
-import { buildRequestBody, composeSystemPrompt } from './chat.js';
-import { msAppendGenerated } from './manuscript.js';
+import { appAlert, appConfirm, esc } from './util.js';
+import { buildRequestBody, composeSystemPrompt, apiWarnMissing } from './chat.js';
+import { msAppendGenerated, msRefresh } from './manuscript.js';
 
 const LS_KEY = 'flowgen_items';
 let flowCtrl = null;
@@ -32,6 +32,7 @@ function addRow(text = '', tokens = 1000) {
     <span class="flow-status hint"></span>
     <button class="flow-del" title="削除">×</button>`;
   row.querySelector('.flow-del').onclick = () => {
+    if (flowCtrl) return; // 生成中は削除不可
     const i = flowItems.findIndex(it => it.el === row);
     if (i >= 0) flowItems.splice(i, 1);
     row.remove(); persist();
@@ -52,13 +53,13 @@ function log(msg) {
   const el = $('flowLog');
   if (el) el.textContent += msg + '\n';
 }
-function updateProgress() {
-  const total = flowItems.length || 1;
+function updateProgress(total) {
+  total = total || flowItems.length || 1;
   const done = flowItems.filter(i => i.status === 'done' || i.status === 'fail' || i.status === 'skip').length;
   const bar = $('flowBar');
-  if (bar) bar.style.width = Math.round(done / total * 100) + '%';
+  if (bar) bar.style.width = Math.min(100, Math.round(done / total * 100)) + '%';
   const st = $('flowStatusText');
-  if (st) st.textContent = `${done}/${total} 項目`;
+  if (st) st.textContent = `${Math.min(done, total)}/${total} 項目`;
 }
 
 export function openFlowGen() {
@@ -70,7 +71,13 @@ export function openFlowGen() {
     $('btnFlowAdd')?.addEventListener('click', () => addRow());
     $('btnFlowRun')?.addEventListener('click', runFlow);
     $('btnFlowCancel')?.addEventListener('click', () => flowCtrl?.abort());
-    const close = () => { modal.classList.add('hidden'); persist(); };
+    const close = async () => {
+      if (flowCtrl) {
+        if (!(await appConfirm('生成中です。中断して閉じますか？（中断しない場合は「キャンセル」で戻れます）'))) return;
+        flowCtrl.abort();
+      }
+      modal.classList.add('hidden'); persist();
+    };
     $('btnCloseFlow')?.addEventListener('click', close);
     $('btnFlowClose')?.addEventListener('click', close);
     modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
@@ -78,8 +85,10 @@ export function openFlowGen() {
   // 項目を復元（初回のみ。実行後の再オープンでも現在の一覧を保持）
   if (!$('flowItems')?.children.length) {
     const saved = loadItems();
+    const seeded = localStorage.getItem('flowgen_seeded') === '1';
     if (saved.length) saved.forEach(x => addRow(x.text, x.tokens));
-    else addRow('牛を倒すところを描いて', 1000);
+    else if (!seeded) { addRow('牛を倒すところを描いて', 1000); addRow('牛から逃げるとこを書いて', 300); addRow('さよなら', 300); }
+    localStorage.setItem('flowgen_seeded', '1');
   }
 }
 
@@ -97,7 +106,7 @@ function chunkItems(items, chunkSize) {
   return chunks;
 }
 
-// `===n===` マーカーで本文を分割
+// `===n===` マーカーで本文を分割（出現順で区切り、番号はマーカーに書かれた値を使う）
 function parseParts(text, n) {
   const map = new Map();
   const re = /^===\s*(\d+)\s*===\s*$/gm;
@@ -105,11 +114,12 @@ function parseParts(text, n) {
   let m;
   while ((m = re.exec(text))) {
     const num = parseInt(m[1], 10);
-    if (num >= 1 && num <= n) marks.push({ num, start: m.index + m[0].length, markStart: m.index });
+    if (num >= 1 && num <= n && !marks.some(x => x.num === num)) {
+      marks.push({ num, start: m.index + m[0].length, markStart: m.index });
+    }
   }
-  marks.sort((a, b) => a.num - b.num);
+  marks.sort((a, b) => a.markStart - b.markStart);
   for (let i = 0; i < marks.length; i++) {
-    if (map.has(marks[i].num)) continue;
     const end = i + 1 < marks.length ? marks[i + 1].markStart : text.length;
     map.set(marks[i].num, text.slice(marks[i].start, end).trim());
   }
@@ -135,6 +145,7 @@ async function callFlowApi(body) {
 async function runFlow() {
   const items = flowItems.filter(it => (it.text || '').trim());
   if (!items.length) { appAlert('指示項目がありません'); return; }
+  if (apiWarnMissing()) return;
   const chunkSize = Math.max(500, parseInt($('flowChunk')?.value, 10) || 5000);
   const chapter = ($('flowChapter')?.value || '').trim();
   const chunks = chunkItems(items, chunkSize);
@@ -142,65 +153,82 @@ async function runFlow() {
   $('btnFlowRun').disabled = true;
   $('btnFlowCancel')?.classList.remove('hidden');
   $('flowProgress')?.classList.remove('hidden');
-  $('flowLog').textContent = '';
+  const logEl = $('flowLog');
+  if (logEl) logEl.textContent = '';
   items.forEach(it => setStatus(it, 'wait'));
-  updateProgress();
+  updateProgress(items.length);
   log(`全${items.length}項目を${chunks.length}チャンクに分割（チャンク上限 ${chunkSize.toLocaleString()}トークン）`);
 
-  const sys = composeSystemPrompt() +
+  const sys = composeSystemPrompt({ noScene: true }) +
     '\n\n※これは原稿への一括執筆タスクです。指定された各項目を、物語として自然につながる本文にしてください。各項目の分量は指定トークン数を目安にしてください。';
 
-  for (let ci = 0; ci < chunks.length; ci++) {
-    if (flowCtrl.signal.aborted) { log('中断しました'); break; }
-    const chunk = chunks[ci];
-    const totalTok = chunk.reduce((a, b) => a + b.tokens, 0);
-    log(`── チャンク${ci + 1}/${chunks.length}: ${chunk.length}項目・約${totalTok.toLocaleString()}トークン ──`);
-    chunk.forEach(it => setStatus(it, 'run'));
-    const list = chunk.map((it, i) => `===${i + 1}=== ${it.text.trim()}（約${it.tokens.toLocaleString()}トークン）`).join('\n');
-    const user =
-      '以下の項目を順番に小説本文として執筆してください。\n\n' +
-      '【出力形式・厳守】\n' +
-      '各項目の本文は必ず `===数字===` だけの行で始めてください。次のマーカー行までがその項目の本文です。' +
-      'マーカー行自体は本文に含めないでください。項目間の説明・あいさつ・まとめ・区切り線などは一切出力しないでください。\n\n' +
-      '【項目】\n' + list;
-    const body = buildRequestBody([
-      { role: 'system', content: sys },
-      { role: 'user', content: user }
-    ], false);
-    body.max_tokens = Math.min(32000, Math.max(1000, Math.round(totalTok * 1.4) + 500));
-    let text = '';
-    try {
-      text = await callFlowApi(body);
-    } catch (e) {
-      log(`チャンク${ci + 1} 生成失敗: ${e.message || e}`);
-      chunk.forEach(it => setStatus(it, 'fail'));
-      updateProgress();
-      continue;
-    }
-    const parts = parseParts(text, chunk.length);
-    if (!parts.size && text.trim()) {
-      // マーカーが取れなかった場合：全文を先頭項目のシーンとして保存
-      msAppendGenerated({ chapterTitle: chapter, sceneTitle: chunk[0].text.trim().slice(0, 24), content: text, src: 'flowgen' });
-      chunk.forEach(it => setStatus(it, 'done'));
-      log(`  → マーカー未検出のため1シーンにまとめて保存`);
-    } else {
-      let got = 0;
-      chunk.forEach((it, i) => {
-        const content = parts.get(i + 1) || '';
-        if (content.trim()) {
-          msAppendGenerated({ chapterTitle: chapter, sceneTitle: it.text.trim().slice(0, 24), content, src: 'flowgen' });
-          setStatus(it, 'done'); got++;
-        } else {
-          setStatus(it, 'fail');
+  try {
+    for (let ci = 0; ci < chunks.length; ci++) {
+      if (flowCtrl.signal.aborted) {
+        log('中断しました');
+        chunks.slice(ci).forEach(c => c.forEach(it => { if (it.status === 'run' || it.status === 'wait') setStatus(it, 'skip'); }));
+        break;
+      }
+      const chunk = chunks[ci];
+      const totalTok = chunk.reduce((a, b) => a + b.tokens, 0);
+      log(`── チャンク${ci + 1}/${chunks.length}: ${chunk.length}項目・約${totalTok.toLocaleString()}トークン ──`);
+      chunk.forEach(it => setStatus(it, 'run'));
+      const list = chunk.map((it, i) => `===${i + 1}=== ${it.text.trim()}（約${it.tokens.toLocaleString()}トークン）`).join('\n');
+      const user =
+        '以下の項目を順番に小説本文として執筆してください。\n\n' +
+        '【出力形式・厳守】\n' +
+        '各項目の本文は必ず `===数字===` だけの行で始めてください。次のマーカー行までがその項目の本文です。' +
+        'マーカー行自体は本文に含めないでください。項目間の説明・あいさつ・まとめ・区切り線などは一切出力しないでください。\n\n' +
+        '【項目】\n' + list;
+      const body = buildRequestBody([
+        { role: 'system', content: sys },
+        { role: 'user', content: user }
+      ], false);
+      body.max_tokens = Math.min(32000, Math.max(1000, Math.round(totalTok * 1.4) + 500));
+      let text = '';
+      try {
+        text = await callFlowApi(body);
+      } catch (e) {
+        if (flowCtrl.signal.aborted) {
+          chunk.forEach(it => setStatus(it, 'skip'));
+          log('中断しました');
+          break;
         }
-      });
-      log(`  → ${got}/${chunk.length}項目を原稿に追加`);
+        log(`チャンク${ci + 1} 生成失敗: ${e.message || e}`);
+        chunk.forEach(it => setStatus(it, 'fail'));
+        updateProgress(items.length);
+        continue;
+      }
+      const parts = parseParts(text, chunk.length);
+      if (!parts.size && text.trim()) {
+        // マーカーが取れなかった場合：全文を先頭項目のシーンとして保存
+        msAppendGenerated({ chapterTitle: chapter, sceneTitle: chunk[0].text.trim().slice(0, 24), content: text, src: 'flowgen', activate: false });
+        setStatus(chunk[0], 'done');
+        chunk.slice(1).forEach(it => setStatus(it, 'skip'));
+        log(`  → マーカー未検出のため1シーンにまとめて保存`);
+      } else {
+        let got = 0;
+        chunk.forEach((it, i) => {
+          const content = parts.get(i + 1) || '';
+          if (content.trim()) {
+            msAppendGenerated({ chapterTitle: chapter, sceneTitle: it.text.trim().slice(0, 24), content, src: 'flowgen', activate: false });
+            setStatus(it, 'done'); got++;
+          } else {
+            setStatus(it, 'fail');
+          }
+        });
+        log(`  → ${got}/${chunk.length}項目を原稿に追加`);
+      }
+      updateProgress(items.length);
     }
-    updateProgress();
+    msRefresh(); // 追加したシーンをまとめてUIに反映
+    $('manuscriptPane')?.classList.remove('hidden');
+    $('qbManuscript')?.classList.add('active');
+  } finally {
+    $('btnFlowRun').disabled = false;
+    $('btnFlowCancel')?.classList.add('hidden');
+    flowCtrl = null;
+    updateProgress(items.length);
+    persist();
   }
-  $('btnFlowRun').disabled = false;
-  $('btnFlowCancel')?.classList.add('hidden');
-  flowCtrl = null;
-  updateProgress();
-  persist();
 }

@@ -2,7 +2,8 @@
 import { $ } from './dom.js';
 
 export function esc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 export function icon(name) {
   return `<svg class="icon"><use href="#i-${name}"/></svg>`;

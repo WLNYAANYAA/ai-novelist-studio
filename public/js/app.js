@@ -5,7 +5,7 @@ import { config, fun, abortCtrl, allTemplates, current, setConfig, setAllCards, 
 import { loadManuscript, toggleManuscriptPane, exportManuscript, msAddChapter, msAddScene, msDelete, msScene, scheduleMsSave, msSetGoal, msForeshadowCheck, updateMsStats, openWritingChart, msAiWrite, toggleMsBoard, toggleMsVertical, restoreMsVertical, msShowAiParts } from './manuscript.js';
 import { refreshSources, openSourcesModal, fillSourceProjectSelect, resetSourceForm, saveSource, deleteSource, importSourceFile, renderSourceList } from './sources.js';
 import { refreshDocuments, initDocEditor } from './documents.js';
-import { refreshConvList, restoreTabs, newConversation, renameConversation, saveProfile, deleteSelectedConvs, clearConvSelection, renderConvList, onSearchInput, queueDraftSave } from './conversations.js';
+import { refreshConvList, restoreTabs, newConversation, renameConversation, saveProfile, deleteSelectedConvs, clearConvSelection, renderConvList, onSearchInput, queueDraftSave, refreshSceneSelect } from './conversations.js';
 import { initScrollWatch, exportDoc } from './messages.js';
 import { send, sendInstruction, insertSceneDivider, insertChapterDivider, altVersion } from './chat.js';
 import { compressContext } from './context.js';
@@ -24,11 +24,9 @@ async function init() {
   setConfig(await api('/api/config'));
   setAllCards(await api('/api/cards'));
   setAllTemplates(await api('/api/templates'));
-  loadManuscript();
+  // 起動時のデータロードを待ってからタブ復元（原稿・ドキュメント一覧が無いと復元判定を誤る）
+  await Promise.allSettled([loadManuscript(), refreshSources(), refreshDocuments(), refreshPresets()]);
   restoreMsVertical();
-  refreshSources();
-  refreshDocuments();
-  refreshPresets();
   await refreshConvList();
   await restoreTabs();
   bindUI();
@@ -159,7 +157,11 @@ function bindUI() {
   $('cardPickModal').addEventListener('click', (e) => { if (e.target === $('cardPickModal')) $('cardPickModal').classList.add('hidden'); });
   $('btnSaveCardPick').onclick = saveCardPick;
 
-  $('btnParams').onclick = () => $('paramsPanel').classList.toggle('hidden');
+  $('btnParams').onclick = () => {
+    const p = $('paramsPanel');
+    p.classList.toggle('hidden');
+    if (!p.classList.contains('hidden')) refreshSceneSelect(); // シーン一覧を最新化
+  };
   $('btnSaveProfile').onclick = saveProfile;
   $('btnPresetSaveCur').onclick = saveProjectPreset;
   $('btnPresetApply').onclick = applyProjectPreset;

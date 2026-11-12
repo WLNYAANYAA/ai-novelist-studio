@@ -10,6 +10,7 @@ let currentDoc = null;   // {id,title,project,content,updated,...}
 let editor = null;       // TipTap Editor
 let loading = false;     // setContent中は保存を発火させない
 let saveTimer = null;
+let openSeq = 0;         // openDocumentの順序ガード（古いGET応答の上書き防止）
 
 // lint.js がドキュメント本文を拾えるように公開（原稿シーンが無い時のフォールバック）
 window.__docText = () => {
@@ -77,7 +78,9 @@ function docsSorted() {
 // ---------- ドキュメントをタブで開く ----------
 export async function openDocument(id) {
   queueDraftSave(); // 切り替え前の会話の下書きを保存
-  clearTimeout(saveTimer); // 前ドキュメントの保存予約を破棄（誤上書き防止）
+  const seq = ++openSeq;
+  // 前ドキュメントの未保存分を先にフラッシュ（切替で編集が消えるのを防ぐ）
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; await saveDocNow(); }
   activateTab('doc', id);
   let doc;
   try {
@@ -88,6 +91,7 @@ export async function openDocument(id) {
     await refreshDocuments();
     return;
   }
+  if (seq !== openSeq) return; // より新しいopenに追い越された
   currentDoc = doc;
   showDocView();
   document.body.classList.remove('sidebar-open');
@@ -124,6 +128,7 @@ export async function newDocument() {
 export async function deleteCurrentDocument() {
   if (!currentDoc) return;
   if (!(await appConfirm(`「${currentDoc.title || '無題'}」を削除しますか？`))) return;
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; } // 削除後の保存発火を防ぐ
   await api('/api/documents/' + currentDoc.id, { method: 'DELETE' });
   const id = currentDoc.id;
   currentDoc = null;
@@ -166,13 +171,15 @@ function scheduleDocSave() {
 }
 async function saveDocNow() {
   if (!currentDoc || !editor) return;
+  const docId = currentDoc.id; // PUT中に別ドキュメントへ切り替わっても混入しないよう固定
   const body = {
     title: ($('docTitle').value || '').trim() || '無題',
     project: $('docProject').value === '__new' ? '' : $('docProject').value,
     content: editor.getHTML()
   };
   try {
-    const d = await api('/api/documents/' + currentDoc.id, { method: 'PUT', body: JSON.stringify(body) });
+    const d = await api('/api/documents/' + docId, { method: 'PUT', body: JSON.stringify(body) });
+    if (currentDoc?.id !== docId) return; // 切替後の古い応答は無視
     currentDoc = { ...currentDoc, ...d };
     convTitleEl.textContent = d.title || '無題';
     updateDocStatus(`保存済み ${new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}`);
@@ -324,12 +331,23 @@ export async function sendTextToDocument(text) {
     doc = await api('/api/documents', { method: 'POST', body: JSON.stringify({ title, content: '' }) });
     await refreshDocuments();
   }
-  const full = await api('/api/documents/' + doc.id);
-  const prev = full.content || '';
+  let prev, fullTitle = title, fullProject = '';
+  if (currentDoc && currentDoc.id === doc.id) {
+    // 開いているドキュメント自身：未保存分をフラッシュしてエディタの最新HTMLを使う
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; await saveDocNow(); }
+    prev = editor ? editor.getHTML() : (currentDoc.content || '');
+    fullTitle = ($('docTitle').value || '').trim() || title;
+    fullProject = $('docProject').value === '__new' ? '' : $('docProject').value;
+  } else {
+    const full = await api('/api/documents/' + doc.id);
+    prev = full.content || '';
+    fullTitle = full.title || title;
+    fullProject = full.project || '';
+  }
   const content = prev + (prev ? '<p></p>' : '') + paras;
   await api('/api/documents/' + doc.id, {
     method: 'PUT',
-    body: JSON.stringify({ title: full.title || title, project: full.project || '', content })
+    body: JSON.stringify({ title: fullTitle, project: fullProject, content })
   });
   await refreshDocuments();
   await openDocument(doc.id);

@@ -103,7 +103,7 @@ function buildSourceBlocks(srcList) {
   return blocks;
 }
 
-function composeSystemPrompt() {
+function composeSystemPrompt(opts = {}) {
   const p = current?.profile || {};
   const parts = [];
   if (p.systemPrompt?.trim()) parts.push(applyVars(p.systemPrompt.trim()));
@@ -121,7 +121,7 @@ function composeSystemPrompt() {
   }
   if (p.worldMemo?.trim()) parts.push('【文脈メモ】\n' + applyVars(p.worldMemo.trim()));
   // 対象シーン紐付け：原稿のシーンに会話を紐付けると本文末尾が文脈に入る
-  const lsc = linkedSceneContext();
+  const lsc = opts.noScene ? null : linkedSceneContext();
   if (lsc) {
     parts.push(`【執筆対象シーン】\n章: ${lsc.chapterTitle}\nシーン: ${lsc.title}` +
       (lsc.tail ? `\n直近の本文末尾:\n${lsc.tail}` : '\n（このシーンの本文はまだありません）') +
@@ -204,6 +204,7 @@ export async function send() {
 let pendingSummary = false;
 
 export async function runCompletion() {
+  if (busy) return; // 多重実行防止（altVersion/rewind等の割り込み対策）
   const conv = current; // 生成対象の会話を固定（途中でタブを切り替えても別会話に混入しないように）
   if (!conv) { setBusy(false); return; }
   setBusy(true);
@@ -249,32 +250,39 @@ export async function runCompletion() {
           scrollChat();
         }, wait);
       };
+      const handleLine = (line) => {
+        if (!line.startsWith('data:')) return;
+        const data = line.slice(5).trim();
+        if (data === '[DONE]') return;
+        try {
+          const json = JSON.parse(data);
+          if (json.error) throw new Error(json.error.message || JSON.stringify(json.error));
+          if (json.usage) {
+            inTok = json.usage.prompt_tokens || inTok;
+            outTok = json.usage.completion_tokens || outTok;
+          }
+          const delta = json.choices?.[0]?.delta || {};
+          const r = delta.reasoning || delta.reasoning_content || '';
+          if (r && !r.includes('ENCRYPTED-TEXT')) reasoning += r;
+          if (delta.content) {
+            fullText += delta.content;
+            scheduleRender();
+          }
+        } catch (e) {
+          if (e instanceof SyntaxError) return; // 不完全なJSON行は無視
+          throw e;
+        }
+      };
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         buf += decoder.decode(value, { stream: true });
         const lines = buf.split('\n');
         buf = lines.pop();
-        for (const line of lines) {
-          if (!line.startsWith('data:')) continue;
-          const data = line.slice(5).trim();
-          if (data === '[DONE]') continue;
-          try {
-            const json = JSON.parse(data);
-            if (json.usage) {
-              inTok = json.usage.prompt_tokens || inTok;
-              outTok = json.usage.completion_tokens || outTok;
-            }
-            const delta = json.choices?.[0]?.delta || {};
-            const r = delta.reasoning || delta.reasoning_content || '';
-            if (r && !r.includes('ENCRYPTED-TEXT')) reasoning += r;
-            if (delta.content) {
-              fullText += delta.content;
-              scheduleRender();
-            }
-          } catch {}
-        }
+        for (const line of lines) handleLine(line);
       }
+      // 末尾に改行がなく残ったバッファも処理（最終イベント落ち防止）
+      if (buf.trim()) for (const line of buf.split('\n')) handleLine(line);
       // ストリーム終了後に最終状態を必ず描画
       botEl.classList.remove('thinking');
       renderBotContent(botEl, fullText, reasoning || '');
@@ -305,7 +313,7 @@ export async function runCompletion() {
         msgObj._autoAdopted = true;
         adoptToManuscript(msgObj.content, { openPane: false, src: 'ai' });
       }
-      if (config.params.suggestNext !== false) suggestNextSteps(botEl, conv);
+      if (config.params.suggestNext !== false && !msgObj._summary && !msgObj._style) suggestNextSteps(botEl, conv);
       if (current === conv) updateCharCount();
     } else {
       botEl.remove();
@@ -547,6 +555,8 @@ export async function branchFrom(msgObj) {
     method: 'POST',
     body: JSON.stringify({
       title: current.title + '（分岐）',
+      project: current.project || '',
+      sceneId: current.sceneId || '',
       messages: copied,
       profile: current.profile,
       cardIds: current.cardIds,

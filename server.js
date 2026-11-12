@@ -481,11 +481,11 @@ app.get('/api/search', (req, res) => {
     }
     for (let i = 0; i < (c.messages || []).length; i++) {
       const m = c.messages[i];
-      if (m.role === 'user' || m.role === 'assistant') {
-        const text = (m.content || '').toLowerCase();
+      if (m && (m.role === 'user' || m.role === 'assistant')) {
+        const raw = typeof m.content === 'string' ? m.content : '';
+        const text = raw.toLowerCase();
         const idx = text.indexOf(q);
         if (idx >= 0) {
-          const raw = m.content;
           const snippet = raw.slice(Math.max(0, idx - 40), idx + q.length + 60).replace(/\n/g, ' ');
           results.push({ id: c.id, kind: 'conv', title: c.title, updated: c.updated, matchType: m.role, messageIndex: i, snippet });
           break; // 1会話につき最初のヒットのみ
@@ -493,31 +493,51 @@ app.get('/api/search', (req, res) => {
       }
     }
   }
-  const stripHtml = (h) => String(h || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  const decodeEnt = (s) => String(s || '')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ');
+  const stripHtml = (h) => decodeEnt(String(h || '').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ');
   const mkSnippet = (raw, idx) => raw.slice(Math.max(0, idx - 40), idx + q.length + 60).replace(/\n/g, ' ');
   // ドキュメント（リッチテキスト）
   for (const d of Object.values(documents)) {
+    const titleHit = String(d.title || '').toLowerCase().includes(q);
     const text = stripHtml(d.content || '');
     const idx = text.toLowerCase().indexOf(q);
-    if (idx >= 0) {
-      results.push({ id: d.id, kind: 'doc', title: d.title || '無題', updated: d.updated, matchType: 'document', snippet: mkSnippet(text, idx) });
+    if (titleHit || idx >= 0) {
+      results.push({
+        id: d.id, kind: 'doc', title: d.title || '無題', updated: d.updated,
+        matchType: titleHit ? 'title' : 'document',
+        snippet: titleHit ? String(d.title || '') : mkSnippet(text, idx)
+      });
     }
   }
   // ソース（参照資料）
   for (const s of Object.values(sources)) {
+    const nameHit = String(s.name || s.project || '').toLowerCase().includes(q);
     const text = String(s.content || '');
     const idx = text.toLowerCase().indexOf(q);
-    if (idx >= 0) {
-      results.push({ id: s.id, kind: 'source', title: s.name || '無題', updated: s.updated, matchType: 'source', snippet: mkSnippet(text, idx) });
+    if (nameHit || idx >= 0) {
+      results.push({
+        id: s.id, kind: 'source', title: s.name || '無題', updated: s.updated,
+        matchType: nameHit ? 'title' : 'source',
+        snippet: nameHit ? String(s.name || '') : mkSnippet(text, idx)
+      });
     }
   }
-  // 原稿シーン
+  // 原稿シーン（シーン名・章名も対象）
   for (const ch of (manuscript?.chapters || [])) {
+    if (!ch || typeof ch !== 'object') continue;
     for (const sc of (ch.scenes || [])) {
+      if (!sc || typeof sc !== 'object') continue;
+      const titleHit = String(sc.title || '').toLowerCase().includes(q) || String(ch.title || '').toLowerCase().includes(q);
       const text = String(sc.content || '');
       const idx = text.toLowerCase().indexOf(q);
-      if (idx >= 0) {
-        results.push({ id: sc.id, kind: 'scene', title: `${ch.title} / ${sc.title}`, updated: manuscript.updated || 0, matchType: 'manuscript', snippet: mkSnippet(text, idx) });
+      if (titleHit || idx >= 0) {
+        results.push({
+          id: sc.id, kind: 'scene', title: `${ch.title} / ${sc.title}`, updated: manuscript.updated || 0,
+          matchType: titleHit ? 'title' : 'manuscript',
+          snippet: titleHit ? String(sc.title || '') : mkSnippet(text, idx)
+        });
       }
     }
   }
@@ -534,7 +554,7 @@ function cardCRUD(route, kind, store) {
     store[id] = {
       id,
       name: String(b.name || '無題').slice(0, 100),
-      kind: ['character', 'world', 'term', 'foreshadow'].includes(b.kind) ? b.kind : 'world',
+      kind: ['character', 'world', 'term', 'foreshadow', 'style'].includes(b.kind) ? b.kind : 'world',
       content: String(b.content || '').slice(0, 20000),
       resolved: b.resolved === true,
       triggers: String(b.triggers || '').slice(0, 500),
@@ -549,7 +569,7 @@ function cardCRUD(route, kind, store) {
     if (!c) return res.status(404).json({ error: 'not found' });
     const b = req.body || {};
     if (typeof b.name === 'string') c.name = b.name.slice(0, 100);
-    if (typeof b.kind === 'string') c.kind = b.kind;
+    if (typeof b.kind === 'string' && ['character', 'world', 'term', 'foreshadow', 'style'].includes(b.kind)) c.kind = b.kind;
     if (typeof b.content === 'string') c.content = b.content.slice(0, 20000);
     if (typeof b.resolved === 'boolean') c.resolved = b.resolved;
     if (typeof b.triggers === 'string') c.triggers = b.triggers.slice(0, 500);
@@ -571,21 +591,53 @@ cardCRUD('templates', 'template', templates);
 app.get('/api/manuscript', (req, res) => res.json(manuscript));
 app.put('/api/manuscript', (req, res) => {
   const b = req.body || {};
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const seenCh = new Set(), seenSc = new Set();
+  const chapters = (Array.isArray(b.chapters) ? b.chapters : []).slice(0, 200)
+    .filter(ch => ch && typeof ch === 'object')
+    .map(ch => {
+      let cid = String(ch.id || '');
+      if (!cid || seenCh.has(cid)) cid = uid();
+      seenCh.add(cid);
+      const scenes = (Array.isArray(ch.scenes) ? ch.scenes : []).slice(0, 500)
+        .filter(sc => sc && typeof sc === 'object')
+        .map(sc => {
+          let sid = String(sc.id || '');
+          if (!sid || seenSc.has(sid)) sid = uid();
+          seenSc.add(sid);
+          const content = String(sc.content || '');
+          // 上限超過時は末尾（最新の追記）を残す
+          const trimmed = content.length > 500000 ? content.slice(-500000) : content;
+          const aiSnippets = Array.isArray(sc.aiSnippets)
+            ? sc.aiSnippets.slice(-50).filter(s => s && typeof s === 'object' && typeof s.text === 'string')
+                .map(s => ({ ts: Number(s.ts) || Date.now(), text: String(s.text).slice(0, 100000) }))
+            : undefined;
+          return {
+            id: sid,
+            title: String(sc.title || '無題').slice(0, 200),
+            content: trimmed,
+            ...(aiSnippets && aiSnippets.length ? { aiSnippets } : {})
+          };
+        });
+      return { id: cid, title: String(ch.title || '無題').slice(0, 200), scenes };
+    });
+  const st = b._stats && typeof b._stats === 'object' ? b._stats : {};
+  const days = st.days && typeof st.days === 'object' ? st.days : {};
+  const dayMap = {};
+  for (const [d, v] of Object.entries(days).slice(-400)) {
+    const n = parseInt(v);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d) && Number.isFinite(n) && n >= 0) dayMap[d] = n;
+  }
   manuscript = {
     title: String(b.title || '無題').slice(0, 200),
-    chapters: (Array.isArray(b.chapters) ? b.chapters : []).slice(0, 200).map(ch => ({
-      id: String(ch.id || ''),
-      title: String(ch.title || '無題').slice(0, 200),
-      scenes: (Array.isArray(ch.scenes) ? ch.scenes : []).slice(0, 500).map(sc => ({
-        id: String(sc.id || ''),
-        title: String(sc.title || '無題').slice(0, 200),
-        content: String(sc.content || '').slice(0, 200000)
-      }))
-    })),
+    chapters,
     goal: String(b.goal || '').slice(0, 50),
-    _stats: b._stats && typeof b._stats === 'object'
-      ? { date: String(b._stats.date || ''), dayChars: Math.max(0, parseInt(b._stats.dayChars) || 0), totalChars: Math.max(0, parseInt(b._stats.totalChars) || 0) }
-      : undefined,
+    _stats: {
+      date: String(st.date || ''),
+      dayChars: Math.max(0, parseInt(st.dayChars) || 0),
+      totalChars: Math.max(0, parseInt(st.totalChars) || 0),
+      days: dayMap
+    },
     updated: Date.now()
   };
   writeDoc('manuscript', 'main', manuscript);
@@ -710,7 +762,7 @@ app.get('/api/project-presets', (req, res) => {
   res.json(Object.values(projectPresets));
 });
 app.put('/api/project-presets/:project', (req, res) => {
-  const project = decodeURIComponent(req.params.project).slice(0, 100);
+  const project = String(req.params.project || '').slice(0, 100);
   const b = req.body || {};
   const id = 'preset:' + project;
   projectPresets[id] = {
@@ -727,7 +779,7 @@ app.put('/api/project-presets/:project', (req, res) => {
   res.json(projectPresets[id]);
 });
 app.delete('/api/project-presets/:project', (req, res) => {
-  const id = 'preset:' + decodeURIComponent(req.params.project);
+  const id = 'preset:' + String(req.params.project || '');
   if (!projectPresets[id]) return res.status(404).json({ error: 'not found' });
   delete projectPresets[id];
   deleteDoc('projectPreset', id);
@@ -740,7 +792,8 @@ app.post('/api/chat', async (req, res) => {
   if (!config.apiKey && !noAuth) {
     return res.status(400).json({ error: 'APIキーが未設定です。設定画面で入力してください。' });
   }
-  const body = { ...req.body, model: req.body.model || config.model };
+  const incoming = req.body && typeof req.body === 'object' ? req.body : {};
+  const body = { ...incoming, model: incoming.model || config.model };
   const base = (config.baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
 
   const headers = { 'Content-Type': 'application/json' };
@@ -751,7 +804,8 @@ app.post('/api/chat', async (req, res) => {
     upstream = await fetch(base + '/chat/completions', {
       method: 'POST',
       headers,
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(300000)
     });
   } catch (e) {
     return res.status(502).json({ error: 'APIに接続できません: ' + e.message });

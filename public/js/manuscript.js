@@ -104,10 +104,17 @@ export function openWritingChart() {
 }
 function scheduleMsSave() {
   clearTimeout(msSaveTimer);
-  msSaveTimer = setTimeout(() => {
-    api('/api/manuscript', { method: 'PUT', body: JSON.stringify(manuscript) }).catch(() => {});
-  }, 600);
+  msSaveTimer = setTimeout(flushMsSave, 600);
 }
+function flushMsSave() {
+  clearTimeout(msSaveTimer);
+  msSaveTimer = null;
+  api('/api/manuscript', { method: 'PUT', body: JSON.stringify(manuscript) })
+    .catch(() => { const el = $('msStatus'); if (el) el.textContent = '原稿の保存に失敗しました'; });
+}
+// タブを閉じる・バックグラウンド化する直前にデバウンス分を確定保存
+window.addEventListener('pagehide', flushMsSave);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushMsSave(); });
 export { scheduleMsSave };
 function msChapter() { return manuscript.chapters.find(c => c.id === msSel.chapterId); }
 export function msScene() {
@@ -283,13 +290,14 @@ export function adoptToManuscript(text, opts = {}) {
 // ---------- AI挿入テキストの記録（出所追跡） ----------
 function recordAiSnippet(sc, text) {
   sc.aiSnippets = sc.aiSnippets || [];
-  sc.aiSnippets.push({ ts: Date.now(), text: text.slice(0, 20000) });
+  // 除去時に本文から確実に見つけられるよう全文を保持（シーン上限と同じ100000字まで）
+  sc.aiSnippets.push({ ts: Date.now(), text: String(text).slice(0, 100000) });
   if (sc.aiSnippets.length > 50) sc.aiSnippets = sc.aiSnippets.slice(-50);
 }
 
 // ---------- 流れ生成などからの一括シーン追加 ----------
 // chapterTitle 指定時はその名前の章を探し、無ければ新規作成。未指定なら選択中の章（無ければ先頭/新規）
-export function msAppendGenerated({ chapterTitle = '', sceneTitle = '', content = '', src = 'ai' } = {}) {
+export function msAppendGenerated({ chapterTitle = '', sceneTitle = '', content = '', src = 'ai', activate = true } = {}) {
   const t = (content || '').trim();
   if (!t) return null;
   if (!manuscript.chapters.length) {
@@ -307,14 +315,21 @@ export function msAppendGenerated({ chapterTitle = '', sceneTitle = '', content 
   ch.scenes.push(sc);
   sc.content = t;
   if (src) recordAiSnippet(sc, t);
-  msSel.chapterId = ch.id;
-  msSel.sceneId = sc.id;
+  if (activate) {
+    msSel.chapterId = ch.id;
+    msSel.sceneId = sc.id;
+    renderMsTree();
+    updateMsEditor();
+    $('manuscriptPane')?.classList.remove('hidden');
+    $('qbManuscript')?.classList.add('active');
+  }
+  return sc;
+}
+// バッチ追加後に一度だけUIを更新する用
+export function msRefresh() {
   renderMsTree();
   updateMsEditor();
   scheduleMsSave();
-  $('manuscriptPane')?.classList.remove('hidden');
-  $('qbManuscript')?.classList.add('active');
-  return sc;
 }
 
 // ---------- シーンをAIに書かせる ----------
@@ -366,9 +381,10 @@ export async function msAiWrite() {
     ]);
     const add = (text || '').trim();
     if (!add) { $('msStatus').textContent = '生成結果が空でした'; return; }
-    sc.content = hasContent
-      ? (sc.content || '').replace(/\s+$/, '') + '\n\n' + add
-      : add;
+    // 生成中にシーンが削除された・ユーザーが本文を編集した場合に備えて再確認
+    if (!msChapter()?.scenes.includes(sc)) { $('msStatus').textContent = 'シーンが削除されたため結果を破棄しました'; return; }
+    const cur = (sc.content || '').trim();
+    sc.content = cur ? cur.replace(/\s+$/, '') + '\n\n' + add : add;
     recordAiSnippet(sc, add);
     renderMsTree();
     updateMsEditor();
@@ -478,11 +494,16 @@ export function msShowAiParts() {
       const sn = sc.aiSnippets?.[i];
       if (!sn) return;
       if (!(await appConfirm('このAI挿入テキストを本文から取り除きますか？（取り消し不可）'))) return;
-      const idx = sc.content.indexOf(sn.text);
-      if (idx >= 0) sc.content = (sc.content.slice(0, idx) + sc.content.slice(idx + sn.text.length)).replace(/\n{3,}/g, '\n\n');
-      sc.aiSnippets.splice(i, 1);
-      renderMsTree(); updateMsEditor(); scheduleMsSave();
-      msShowAiParts();
+      // 末尾から探す（同一文の重複挿入で最新＝対象側を優先）。見つかった時だけ記録を消す
+      const idx = sc.content.lastIndexOf(sn.text);
+      if (idx >= 0) {
+        sc.content = (sc.content.slice(0, idx) + sc.content.slice(idx + sn.text.length)).replace(/\n{3,}/g, '\n\n');
+        sc.aiSnippets.splice(i, 1);
+        renderMsTree(); updateMsEditor(); scheduleMsSave();
+        msShowAiParts();
+      } else {
+        appAlert('本文内に該当テキストが見つかりませんでした（編集済みの可能性）。記録は残しています。');
+      }
     };
   });
 }

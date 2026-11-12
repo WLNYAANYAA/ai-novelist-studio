@@ -89,10 +89,10 @@ export function addSceneDivider(m) {
   scrollChat();
 }
 
-// Markdown→HTML（DOMPurifyでサニタイズ。未読込時は生HTMLにフォールバック）
+// Markdown→HTML（DOMPurifyでサニタイズ。未読込時はプレーンテキストに退避してXSSを防ぐ）
 export function mdRender(text) {
   const html = marked.parse(text);
-  return window.DOMPurify ? DOMPurify.sanitize(html) : html;
+  return window.DOMPurify ? DOMPurify.sanitize(html) : esc(text).replace(/\n/g, '<br>');
 }
 export function renderBotContent(el, text, reasoning) {
   const content = el.querySelector('.content');
@@ -152,6 +152,7 @@ function removeMessage(m, el) {
   if (!current) return;
   const idx = current.messages.indexOf(m);
   if (idx >= 0) current.messages.splice(idx, 1);
+  if (msgObserver && el.isConnected !== false) msgObserver.unobserve(el);
   el.remove();
   saveConversation();
   updateCharCount();
