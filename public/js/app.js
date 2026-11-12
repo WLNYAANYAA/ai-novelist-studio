@@ -4,6 +4,7 @@ import { api, esc, appPrompt } from './util.js';
 import { config, fun, abortCtrl, allTemplates, current, setConfig, setAllCards, setAllTemplates } from './state.js';
 import { loadManuscript, toggleManuscriptPane, exportManuscript, msAddChapter, msAddScene, msDelete, msScene, scheduleMsSave, msSetGoal, msForeshadowCheck, updateMsStats } from './manuscript.js';
 import { refreshSources, openSourcesModal, fillSourceProjectSelect, resetSourceForm, saveSource, deleteSource, importSourceFile, renderSourceList } from './sources.js';
+import { refreshDocuments, initDocEditor } from './documents.js';
 import { refreshConvList, restoreTabs, newConversation, renameConversation, saveProfile, deleteSelectedConvs, clearConvSelection, renderConvList, onSearchInput, queueDraftSave } from './conversations.js';
 import { initScrollWatch, exportDoc } from './messages.js';
 import { send, sendInstruction, insertSceneDivider, insertChapterDivider, altVersion } from './chat.js';
@@ -22,6 +23,7 @@ async function init() {
   setAllTemplates(await api('/api/templates'));
   loadManuscript();
   refreshSources();
+  refreshDocuments();
   await refreshConvList();
   await restoreTabs();
   bindUI();
@@ -96,11 +98,12 @@ function bindUI() {
   });
   // プロンプト最適化
   $('btnOptimizePrompt').onclick = optimizePrompt;
+  initDocEditor();
   initScrollWatch();
   $('btnSettings').onclick = openSettings;
   convTitleEl.title = 'ダブルクリックで会話名を変更';
   convTitleEl.ondblclick = async () => {
-    if (!current) return;
+    if (!current || $('chatCol')?.classList.contains('hidden')) return; // ドキュメント表示中は無効
     const v = await appPrompt('会話名を入力', current.title);
     if (v && v.trim() && v.trim() !== current.title) {
       await renameConversation(current, v);

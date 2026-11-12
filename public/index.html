@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>AI Novelist Studio</title>
-<link rel="stylesheet" href="/css/style.css?v=24">
+<link rel="stylesheet" href="/css/style.css?v=26">
 </head>
 <body>
 <script>document.documentElement.dataset.sidebar = localStorage.getItem('sidebar_collapsed') === '1' ? 'collapsed' : '';</script>
@@ -104,6 +104,13 @@
       <button id="btnBulkClear" class="btn-ghost btn-sm">解除</button>
     </div>
     <div id="convList"></div>
+    <div id="docSection">
+      <div class="doc-section-head">
+        <span class="doc-section-title">ドキュメント</span>
+        <button id="btnNewDoc" class="btn-ghost btn-sm" title="新しいドキュメント（リッチテキスト）"><svg class="icon"><use href="#i-plus"/></svg></button>
+      </div>
+      <div id="docList"></div>
+    </div>
     <div id="searchResults" class="hidden"></div>
     <div class="sidebar-footer">
       <button id="btnCards" class="btn-ghost"><svg class="icon"><use href="#i-card"/></svg> カード</button>
@@ -268,6 +275,43 @@
         </div>
       </div>
         </div>
+      </div>
+
+      <!-- ドキュメントエディタペイン（リッチテキスト） -->
+      <div id="docPane" class="hidden">
+        <div class="doc-toolbar" id="docToolbar">
+          <button type="button" data-cmd="bold" title="太字"><b>B</b></button>
+          <button type="button" data-cmd="italic" title="斜体"><i>I</i></button>
+          <button type="button" data-cmd="underline" title="下線"><u>U</u></button>
+          <button type="button" data-cmd="strike" title="取り消し線"><s>S</s></button>
+          <span class="doc-tb-sep"></span>
+          <button type="button" data-cmd="heading1" title="見出し1">H1</button>
+          <button type="button" data-cmd="heading2" title="見出し2">H2</button>
+          <button type="button" data-cmd="heading3" title="見出し3">H3</button>
+          <button type="button" data-cmd="paragraph" title="本文">¶</button>
+          <span class="doc-tb-sep"></span>
+          <button type="button" data-cmd="bulletList" title="箇条書き">•</button>
+          <button type="button" data-cmd="orderedList" title="番号付き">1.</button>
+          <button type="button" data-cmd="blockquote" title="引用">❞</button>
+          <button type="button" data-cmd="codeBlock" title="コードブロック">&lt;/&gt;</button>
+          <button type="button" data-cmd="horizontalRule" title="区切り線">―</button>
+          <span class="doc-tb-sep"></span>
+          <button type="button" data-cmd="link" title="リンク">リンク</button>
+          <button type="button" data-cmd="unlink" title="リンク解除">解除</button>
+          <span class="doc-tb-sep"></span>
+          <button type="button" data-cmd="undo" title="元に戻す">↶</button>
+          <button type="button" data-cmd="redo" title="やり直し">↷</button>
+        </div>
+        <div class="doc-meta">
+          <input id="docTitle" type="text" placeholder="タイトル">
+          <select id="docProject"><option value="">（プロジェクトなし）</option></select>
+          <span id="docStatus" class="hint"></span>
+          <span class="doc-meta-actions">
+            <button id="btnDocExport" class="btn-ghost btn-sm">エクスポート</button>
+            <button id="btnDocDelete" class="btn-ghost btn-sm">削除</button>
+          </span>
+        </div>
+        <div id="docEditor" class="doc-editor"></div>
       </div>
 
       <!-- 原稿ペイン -->
@@ -652,8 +696,9 @@
   </div>
 </div>
 
+<script src="/js/editor.bundle.js?v=1"></script>
 <script src="/js/marked.min.js?v=22"></script>
 <script src="/js/purify.min.js?v=22"></script>
-<script type="module" src="/js/app.js?v=30"></script>
+<script type="module" src="/js/app.js?v=31"></script>
 </body>
 </html>

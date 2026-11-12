@@ -6,6 +6,7 @@ export let config = null;
 export let allCards = [];
 export let allTemplates = [];
 export let allSources = [];
+export let allDocs = [];
 export let cardsVersion = 0; // カード変更検知用（effectiveCardIdsキャッシュの無効化）
 export let current = null;
 export let busy = false;
@@ -16,6 +17,7 @@ export const setConfig = (v) => { config = v; };
 export const setAllCards = (v) => { allCards = v; };
 export const setAllTemplates = (v) => { allTemplates = v; };
 export const setAllSources = (v) => { allSources = v; };
+export const setAllDocs = (v) => { allDocs = v; };
 export const setCardsVersion = (v) => { cardsVersion = v; };
 export const setCurrent = (v) => { current = v; };
 export const setBusyState = (v) => { busy = v; };

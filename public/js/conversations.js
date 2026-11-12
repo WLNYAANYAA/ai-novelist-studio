@@ -1,14 +1,48 @@
 // ---------- Conversations（一覧・タブ・下書き・検索・プロフィールパネル） ----------
 import { $, chatEl, inputEl, convListEl, convTitleEl, tokenBadgeEl, searchBox, searchResultsEl } from './dom.js';
 import { api, esc, icon, fmtDate, appConfirm, appPrompt } from './util.js';
-import { current, setCurrent, allSources, draftKey } from './state.js';
+import { current, setCurrent, allSources, allDocs, draftKey } from './state.js';
 import { clearChat, renderMessage, scrollChat, updateCharCount } from './messages.js';
 import { updateTokenBadge } from './chat.js';
 import { hideTagSug } from './tags.js';
 
 export let conversations = [];
-export let tabs = [];        // [{id}] 開いているタブ
+export let tabs = [];        // [{type:'conv'|'doc', id}] 開いているタブ
+export let activeTabType = 'conv';
 export let activeTabId = null;
+
+// ---------- タブ基盤（conv/doc 共通） ----------
+const tabKey = (t) => (t.type === 'doc' ? 'd:' : '') + t.id;
+const isActiveTab = (t) => t.type === activeTabType && t.id === activeTabId;
+const tabOpeners = {}; // type -> (id) => Promise
+export function registerTabOpener(type, fn) { tabOpeners[type] = fn; }
+export async function openTabEntry(tab) {
+  const fn = tabOpeners[tab.type] || (tab.type === 'conv' ? openConversation : null);
+  if (fn) await fn(tab.id);
+  else showEmptyChat();
+}
+export function activateTab(type, id) {
+  if (!tabs.some(t => t.type === type && t.id === id)) tabs.push({ type, id });
+  activeTabType = type; activeTabId = id;
+  saveTabs(); renderTabs();
+}
+let msPaneWasOpen = false;
+export function showChatView() {
+  $('docPane')?.classList.add('hidden');
+  $('chatCol')?.classList.remove('hidden');
+  if (msPaneWasOpen) {
+    msPaneWasOpen = false;
+    $('manuscriptPane')?.classList.remove('hidden');
+    $('qbManuscript')?.classList.add('active');
+  }
+}
+export function showDocView() {
+  msPaneWasOpen = !!$('manuscriptPane') && !$('manuscriptPane').classList.contains('hidden');
+  $('chatCol')?.classList.add('hidden');
+  $('manuscriptPane')?.classList.add('hidden');
+  $('paramsPanel')?.classList.add('hidden');
+  $('docPane')?.classList.remove('hidden');
+}
 
 // プロジェクト名の一覧（会話とソースの project を統合した名前空間）
 export function projectNamesAll() {
@@ -59,13 +93,14 @@ export async function deleteSelectedConvs() {
   for (const id of ids) {
     try { await api('/api/conversations/' + id, { method: 'DELETE' }); } catch {}
   }
-  tabs = tabs.filter(t => !ids.includes(t.id));
+  tabs = tabs.filter(t => !(t.type === 'conv' && ids.includes(t.id)));
   clearConvSelection();
-  if (current && ids.includes(current.id)) {
-    activeTabId = null; setCurrent(null); clearChat();
-    const rest = conversations.filter(c => !ids.includes(c.id));
-    const nextId = tabs.length ? tabs[tabs.length - 1].id : rest[0]?.id;
-    if (nextId) await openConversation(nextId);
+  if (current && ids.includes(current.id) && activeTabType === 'conv') {
+    activeTabType = 'conv'; activeTabId = null; setCurrent(null); clearChat(); showChatView();
+    const nextTab = tabs[tabs.length - 1];
+    const nextConvId = conversations.find(c => !ids.includes(c.id))?.id;
+    if (nextTab) await openTabEntry(nextTab);
+    else if (nextConvId) await openConversation(nextConvId);
     else showEmptyChat();
   } else {
     saveTabs(); renderTabs();
@@ -73,6 +108,7 @@ export async function deleteSelectedConvs() {
   await refreshConvList();
 }
 export function showEmptyChat() {
+  showChatView();
   convTitleEl.textContent = '会話を選択';
   chatEl.innerHTML = '<div class="msg bot" style="align-self:center;color:var(--text-dim)">タブがありません。サイドバーか「＋」から会話を開いてください</div>';
   loadProfileToPanel();
@@ -106,14 +142,15 @@ export function renderConvList() {
       if (!(await appConfirm(`「${c.title}」を削除しますか？`))) return;
       await api('/api/conversations/' + c.id, { method: 'DELETE' });
       selectedConvs.delete(c.id);
-      const wasActive = current && current.id === c.id;
-      tabs = tabs.filter(t => t.id !== c.id); // 開いているタブも閉じる
+      const wasActive = current && current.id === c.id && activeTabType === 'conv';
+      tabs = tabs.filter(t => !(t.type === 'conv' && t.id === c.id)); // 開いているタブも閉じる
       if (wasActive) {
-        activeTabId = null;
-        setCurrent(null); clearChat();
-        const rest = conversations.filter(x => x.id !== c.id);
-        const nextId = tabs.length ? tabs[tabs.length - 1].id : rest[0]?.id;
-        if (nextId) await openConversation(nextId);
+        activeTabType = 'conv'; activeTabId = null;
+        setCurrent(null); clearChat(); showChatView();
+        const nextTab = tabs[tabs.length - 1];
+        const nextConvId = conversations.find(x => x.id !== c.id)?.id;
+        if (nextTab) await openTabEntry(nextTab);
+        else if (nextConvId) await openConversation(nextConvId);
         else if (conversations.length > 1) showEmptyChat();
         else await newConversation();
       } else {
@@ -207,46 +244,50 @@ function startConvRename(div, c) {
 
 // ---------- Tabs ----------
 function saveTabs() {
-  localStorage.setItem('open_tabs', JSON.stringify(tabs.map(t => t.id)));
-  localStorage.setItem('active_tab', activeTabId || '');
+  localStorage.setItem('open_tabs', JSON.stringify(tabs.map(tabKey)));
+  localStorage.setItem('active_tab', activeTabId ? tabKey({ type: activeTabType, id: activeTabId }) : '');
 }
 export function renderTabs() {
   const el = $('tabs');
   if (!el) return;
   el.innerHTML = '';
   for (const t of tabs) {
-    const c = conversations.find(x => x.id === t.id);
+    const isDoc = t.type === 'doc';
+    const title = isDoc
+      ? (allDocs.find(x => x.id === t.id)?.title || '読み込み中…')
+      : (conversations.find(x => x.id === t.id)?.title || '読み込み中…');
     const div = document.createElement('div');
-    div.className = 'tab' + (t.id === activeTabId ? ' active' : '');
-    const title = document.createElement('span');
-    title.className = 'tab-title';
-    title.textContent = c?.title || '読み込み中…';
-    title.title = c?.title || '';
+    div.className = 'tab' + (isActiveTab(t) ? ' active' : '') + (isDoc ? ' tab-doc' : '');
+    const titleEl = document.createElement('span');
+    titleEl.className = 'tab-title';
+    titleEl.textContent = title || '無題';
+    titleEl.title = title || '';
     const close = document.createElement('button');
     close.className = 'tab-close';
     close.textContent = '×';
-    close.title = 'タブを閉じる（会話は削除されません）';
-    close.onclick = (e) => { e.stopPropagation(); closeTab(t.id); };
-    div.appendChild(title);
+    close.title = 'タブを閉じる（データは削除されません）';
+    close.onclick = (e) => { e.stopPropagation(); closeTab(t); };
+    div.appendChild(titleEl);
     div.appendChild(close);
-    div.onclick = () => { if (t.id !== activeTabId) openConversation(t.id); };
+    div.onclick = () => { if (!isActiveTab(t)) openTabEntry(t); };
     el.appendChild(div);
   }
   const active = el.querySelector('.tab.active');
   if (active) active.scrollIntoView({ inline: 'nearest', block: 'nearest' });
 }
-export async function closeTab(id) {
-  const idx = tabs.findIndex(t => t.id === id);
+export async function closeTab(tab) {
+  const idx = tabs.findIndex(t => t.type === tab.type && t.id === tab.id);
   if (idx < 0) return;
   tabs.splice(idx, 1);
-  if (activeTabId === id) {
-    saveDraft(); // 閉じるタブの下書きを保存
-    activeTabId = null;
+  if (isActiveTab(tab)) {
+    if (tab.type === 'conv') saveDraft(); // 閉じるタブの下書きを保存
+    activeTabType = 'conv'; activeTabId = null;
     setCurrent(null);
     clearChat();
-    const next = tabs[Math.min(idx, tabs.length - 1)]?.id;
+    showChatView();
+    const next = tabs[Math.min(idx, tabs.length - 1)];
     if (next) {
-      await openConversation(next);
+      await openTabEntry(next);
       return;
     }
     // 最後のタブ：新規会話は作らず空の状態にする（会話が増殖するのを防ぐ）
@@ -273,14 +314,12 @@ export { queueDraftSave };
 export async function openConversation(id) {
   saveDraft(); // 切り替え前の会話の下書きを保存
   document.body.classList.remove('sidebar-open'); // モバイルのドロワーを閉じる
-  if (!tabs.some(t => t.id === id)) tabs.push({ id });
-  activeTabId = id;
-  saveTabs();
+  activateTab('conv', id);
   await loadConv(id);
-  renderTabs();
 }
 
 export async function loadConv(id) {
+  showChatView();
   setCurrent(await api('/api/conversations/' + id));
   current.profile = current.profile || {};
   current.cardIds = current.cardIds || [];
@@ -432,13 +471,17 @@ export async function restoreTabs() {
   try {
     const savedTabs = JSON.parse(localStorage.getItem('open_tabs') || '[]');
     const savedActive = localStorage.getItem('active_tab') || '';
-    const valid = savedTabs.filter(id => conversations.some(c => c.id === id));
+    const parsed = savedTabs.map(x =>
+      (typeof x === 'string' && x.startsWith('d:'))
+        ? { type: 'doc', id: x.slice(2) }
+        : { type: 'conv', id: x });
+    const valid = parsed.filter(t => t.type === 'doc' || conversations.some(c => c.id === t.id));
     if (valid.length) {
-      tabs = valid.map(id => ({ id }));
-      activeTabId = valid.includes(savedActive) ? savedActive : valid[0];
+      tabs = valid;
+      const active = valid.find(t => tabKey(t) === savedActive) || valid[0];
+      activeTabType = active.type; activeTabId = active.id;
       saveTabs();
-      await loadConv(activeTabId);
-      renderTabs();
+      await openTabEntry(active);
       restored = true;
     }
   } catch {}

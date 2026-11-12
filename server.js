@@ -155,6 +155,7 @@ let cards = loadStore('card');
 let templates = loadStore('template');
 let manuscript = loadDoc('manuscript', 'main', { title: '無題', chapters: [] });
 let sources = loadStore('source');
+let documents = loadStore('doc');
 // 実際に 0.0.0.0 で外部公開中か（startListener で更新）
 let lanPublic = false;
 
@@ -245,6 +246,9 @@ function ensureMecabOnPath() {
     const sep = path.delimiter;
     const dirs = (process.env.PATH || '').split(sep);
     if (!dirs.includes(bin)) process.env.PATH = bin + sep + process.env.PATH;
+    // mecab.exe は etc/mecabrc を自動検出しないため MECABRC で明示する
+    const rc = path.join(bin, '..', 'etc', 'mecabrc');
+    if (fs.existsSync(rc) && !process.env.MECABRC) process.env.MECABRC = rc;
   }
 }
 function resolveUnidic() {
@@ -585,6 +589,50 @@ app.delete('/api/sources/:id', (req, res) => {
   if (!sources[req.params.id]) return res.status(404).json({ error: 'not found' });
   delete sources[req.params.id];
   deleteDoc('source', req.params.id);
+  res.json({ ok: true });
+});
+
+// ---------- Documents（リッチテキストエディタのドキュメント） ----------
+app.get('/api/documents', (req, res) => {
+  res.json(Object.values(documents).map(d => ({
+    id: d.id, title: d.title, project: d.project || '',
+    updated: d.updated, chars: (d.content || '').length
+  })).sort((a, b) => b.updated - a.updated));
+});
+app.get('/api/documents/:id', (req, res) => {
+  const d = documents[req.params.id];
+  if (!d) return res.status(404).json({ error: 'not found' });
+  res.json(d);
+});
+app.post('/api/documents', (req, res) => {
+  const b = req.body || {};
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  documents[id] = {
+    id,
+    title: String(b.title || '無題').slice(0, 200),
+    project: String(b.project || '').slice(0, 100),
+    content: String(b.content || '').slice(0, 2000000),
+    created: Date.now(),
+    updated: Date.now()
+  };
+  writeDoc('doc', id, documents[id]);
+  res.json(documents[id]);
+});
+app.put('/api/documents/:id', (req, res) => {
+  const d = documents[req.params.id];
+  if (!d) return res.status(404).json({ error: 'not found' });
+  const b = req.body || {};
+  if (typeof b.title === 'string') d.title = b.title.slice(0, 200);
+  if (typeof b.project === 'string') d.project = b.project.slice(0, 100);
+  if (typeof b.content === 'string') d.content = b.content.slice(0, 2000000);
+  d.updated = Date.now();
+  writeDoc('doc', req.params.id, d);
+  res.json(d);
+});
+app.delete('/api/documents/:id', (req, res) => {
+  if (!documents[req.params.id]) return res.status(404).json({ error: 'not found' });
+  delete documents[req.params.id];
+  deleteDoc('doc', req.params.id);
   res.json({ ok: true });
 });
 
