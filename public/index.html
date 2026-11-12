@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
-<meta name="theme-color" content="#12111a">
+<meta name="theme-color" content="#fafafa">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -384,19 +384,13 @@
         </label>
         <div class="set-grid">
           <label class="set-label">APIプロバイダ
-            <select id="sProvider">
+            <select id="sProvider" disabled>
               <option value="tringpt">AIのべりすと</option>
-              <option value="openai">OpenAI</option>
-              <option value="ollama">Ollama（ローカル）</option>
-              <option value="lmstudio">LM Studio（ローカル）</option>
-              <option value="custom">カスタム（OpenAI互換）</option>
             </select>
           </label>
-          <label class="set-label">APIベースURL
-            <input type="text" id="sBaseUrl" placeholder="https://api.tringpt.com/v1">
-          </label>
         </div>
-        <label class="set-label" style="flex-direction:row;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="sNoAuth"> APIキー不要（ローカルLLM等・認証ヘッダを送らない）</label>
+        <input type="hidden" id="sBaseUrl" value="https://api.tringpt.com/v1">
+        <input type="hidden" id="sNoAuth">
         <label class="set-label" style="flex-direction:row;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="sLanAccess"> スマホ・他の端末からアクセスを許可（同一Wi-Fi内のみ・要再起動なし）</label>
         <div class="set-grid">
           <label class="set-label">モデル

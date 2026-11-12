@@ -153,6 +153,9 @@ let config = {
   ...savedConfig,
   params: { ...defaultConfig.params, ...(savedConfig.params || {}) }
 };
+// AIのべりすと専用：接続先は常に固定（カスタムエンドポイント・認証なしモードは無効）
+config.baseUrl = DEFAULT_BASE_URL;
+config.noAuth = false;
 let conversations = loadStore('conv');
 let cards = loadStore('card');
 let templates = loadStore('template');
@@ -364,6 +367,8 @@ app.post('/api/config', (req, res) => {
     config.baseUrl = b.baseUrl.trim().replace(/\/+$/, '');
   }
   if (typeof b.noAuth === 'boolean') config.noAuth = b.noAuth;
+  config.baseUrl = DEFAULT_BASE_URL; // のべりすと専用：常に固定
+  config.noAuth = false;
   if (typeof b.model === 'string' && b.model.trim()) config.model = b.model.trim();
   if (b.params && typeof b.params === 'object') config.params = { ...config.params, ...b.params };
   for (const k of ['systemPrompt', 'worldMemo', 'stylePreset']) {

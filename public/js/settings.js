@@ -45,9 +45,9 @@ export function openSettings() {
   $('sApiKey').value = '';
   $('sApiKey').placeholder = config.hasApiKey ? config.apiKeyMasked : 'APIキーを入力';
   $('sModel').value = config.model;
-  $('sProvider').value = detectProvider(config.baseUrl);
-  $('sBaseUrl').value = config.baseUrl || '';
-  $('sNoAuth').checked = config.noAuth === true;
+  $('sProvider').value = 'tringpt';
+  $('sBaseUrl').value = PROVIDER_URLS.tringpt;
+  $('sNoAuth').removeAttribute('checked');
   $('sLanAccess').checked = config.lanAccess === true;
   $('sTemperature').value = config.params.temperature;
   $('sTopP').value = config.params.topP;
@@ -111,8 +111,8 @@ export async function saveSettings() {
     },
     stream: $('sStream').checked,
     sendOnEnter: $('sSendOnEnter').checked,
-    baseUrl: $('sBaseUrl').value.trim() || PROVIDER_URLS[$('sProvider').value] || PROVIDER_URLS.tringpt,
-    noAuth: $('sNoAuth').checked,
+    baseUrl: PROVIDER_URLS.tringpt,
+    noAuth: false,
     lanAccess: $('sLanAccess').checked,
     systemPrompt: $('sSystemPrompt').value,
     worldMemo: $('sWorldMemo').value,
@@ -209,7 +209,7 @@ async function applyPreset(p) {
   await api('/api/config', {
     method: 'POST',
     body: JSON.stringify({
-      model: d.model, baseUrl: d.baseUrl, noAuth: d.noAuth === true,
+      model: d.model, baseUrl: PROVIDER_URLS.tringpt, noAuth: false,
       params: d.params || {}, systemPrompt: d.systemPrompt || '',
       worldMemo: d.worldMemo || '', stylePreset: d.stylePreset || '',
       stream: d.stream !== false, sendOnEnter: d.sendOnEnter === true

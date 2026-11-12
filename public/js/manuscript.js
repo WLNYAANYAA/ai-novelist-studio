@@ -87,7 +87,7 @@ export function openWritingChart() {
       datasets: [{
         label: '文字数',
         data: labels.map(d => days[d]),
-        backgroundColor: 'rgba(120,160,255,.55)',
+        backgroundColor: 'rgba(0,0,0,.35)',
         borderRadius: 3,
       }],
     },
