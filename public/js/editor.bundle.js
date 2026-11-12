@@ -20604,8 +20604,7 @@ img.ProseMirror-separator {
               key: AssistKey,
               state: {
                 init: () => DecorationSet.empty,
-                apply(tr2, old) {
-                  const { newState } = tr2;
+                apply(tr2, old, oldState, newState) {
                   if (!tr2.docChanged && !tr2.selectionSet) return old.map(tr2.mapping, newState.doc);
                   const sug = computeSuggestion(newState, o.getNames);
                   if (!sug) return DecorationSet.empty;
@@ -20615,7 +20614,7 @@ img.ProseMirror-separator {
               },
               props: {
                 decorations(state) {
-                  return this.getState(state);
+                  return AssistKey.getState(state);
                 },
                 handleKeyDown(view, event) {
                   if (event.key !== "Tab") return false;

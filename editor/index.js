@@ -57,8 +57,7 @@ function WriterAssist(opts) {
         key: AssistKey,
         state: {
           init: () => DecorationSet.empty,
-          apply(tr, old) {
-            const { newState } = tr;
+          apply(tr, old, oldState, newState) {
             // 変化がなければそのまま
             if (!tr.docChanged && !tr.selectionSet) return old.map(tr.mapping, newState.doc);
             const sug = computeSuggestion(newState, o.getNames);
@@ -68,7 +67,7 @@ function WriterAssist(opts) {
           }
         },
         props: {
-          decorations(state) { return this.getState(state); },
+          decorations(state) { return AssistKey.getState(state); },
           handleKeyDown(view, event) {
             if (event.key !== 'Tab') return false;
             const sug = computeSuggestion(view.state, o.getNames);

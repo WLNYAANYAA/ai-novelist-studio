@@ -402,14 +402,20 @@ const READERS = [
   ['🖊️ 書籍編集者（プロの目・売れるかどうか）', 'あなたは小説編集者です。読者の心を掴むか・続きが読みたくなるか・市場で売れるかを冷静かつ的確に評価します。']
 ];
 export async function readerSimulate() {
-  if (!current || busy) return;
+  if (busy) return;
   if (apiWarnMissing()) return;
-  // 対象テキスト: 原稿シーン優先、なければ直近のAI応答
+  // 対象テキスト: 表示中ドキュメント > 原稿シーン > 直近のAI応答
   let srcLabel = '', text = '';
-  const sc = msScene();
-  if (sc && (sc.content || '').trim().length > 80) {
-    srcLabel = `原稿「${sc.title}」`; text = sc.content;
+  const docText = window.__docText ? window.__docText() : '';
+  if (docText.trim().length > 80) {
+    srcLabel = 'ドキュメント'; text = docText;
   } else {
+    const sc = msScene();
+    if (sc && (sc.content || '').trim().length > 80) {
+      srcLabel = `原稿「${sc.title}」`; text = sc.content;
+    }
+  }
+  if (!text.trim() && current) {
     for (let i = current.messages.length - 1; i >= 0; i--) {
       const m = current.messages[i];
       if (m.role === 'assistant' && (m.content || '').length > 80) { srcLabel = '直近のAI応答'; text = m.content; break; }

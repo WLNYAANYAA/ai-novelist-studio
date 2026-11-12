@@ -263,7 +263,8 @@ async function aiContinueDoc() {
     const paras = add.split(/\n{2,}/)
       .map(p => '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>')
       .join('');
-    editor.chain().focus('end').insertContent('<p></p>').insertContent(paras).run();
+    const endPos = editor.state.doc.content.size;
+    editor.chain().focus().setTextSelection(endPos).insertContent('<p></p>').insertContent(paras).run();
     updateDocStatus('AIの続きを末尾に追加しました（Ctrl+Zで取り消し可）');
   } catch (e) {
     updateDocStatus('生成失敗: ' + (e.message || e));

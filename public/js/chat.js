@@ -110,7 +110,7 @@ function composeSystemPrompt() {
   // 文体DNA（文体分析で保存した自動注入プロファイル）
   try {
     const dna = localStorage.getItem('style_dna');
-    if (dna && dna.trim()) parts.push('【文体DNA（この文体で執筆すること）】\n' + dna.trim());
+    if (dna && dna.trim()) parts.push('【文体DNA（この文体で執筆すること）】\n' + dna.trim().slice(0, 2500));
   } catch {}
   if (p.plot?.trim()) parts.push('【プロット】\n' + applyVars(p.plot.trim()));
   if (p.summary?.trim()) parts.push('【これまでのあらすじ（圧縮済み）】\n' + applyVars(p.summary.trim()));

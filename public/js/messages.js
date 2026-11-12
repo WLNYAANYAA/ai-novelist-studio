@@ -3,7 +3,7 @@ import { $, chatEl, inputEl } from './dom.js';
 import { esc, icon, appConfirm, appAlert, downloadFile } from './util.js';
 import { current, fun } from './state.js';
 import { saveConversation } from './conversations.js';
-import { regenerate, branchFrom, instructFrom, appendToMemo, runCompletion } from './chat.js';
+import { regenerate, branchFrom, instructFrom, appendToMemo, runCompletion, captureSnapshot } from './chat.js';
 import { adoptToManuscript } from './manuscript.js';
 import { saveStyle } from './ai-tools.js';
 import { toggleSpeak } from './features.js';
@@ -128,6 +128,7 @@ export async function rewindTo(msgObj, el) {
   const n = current.messages.length - idx;
   const label = msgObj.role === 'user' ? 'この指示と以降の全てのやり取り' : 'この応答と以降の全てのやり取り';
   if (!(await appConfirm(`${label}（${n}件）を削除して、その時点に巻き戻しますか？`))) return;
+  captureSnapshot('巻き戻し前');
   if (msgObj.role === 'user') {
     // ユーザー発言: 指示文を入力欄に戻して修正できるようにする
     inputEl.value = msgObj.content || '';

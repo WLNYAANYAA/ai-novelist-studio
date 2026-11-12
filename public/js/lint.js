@@ -4,12 +4,12 @@ import { esc, showResultModal } from './util.js';
 import { current } from './state.js';
 import { msScene } from './manuscript.js';
 
-// 対象テキストを推定して取得（原稿シーン > ドキュメント > 最新AI応答）
+// 対象テキストを推定して取得（表示中のドキュメント > 原稿シーン > 直近AI応答）
 export function lintSourceText() {
-  const sc = msScene();
-  if (sc && (sc.content || '').trim().length > 50) return { label: `原稿: ${sc.title}`, text: sc.content };
   const docText = window.__docText ? window.__docText() : '';
   if (docText.trim().length > 50) return { label: 'ドキュメント', text: docText };
+  const sc = msScene();
+  if (sc && (sc.content || '').trim().length > 50) return { label: `原稿: ${sc.title}`, text: sc.content };
   if (current) {
     for (let i = current.messages.length - 1; i >= 0; i--) {
       const m = current.messages[i];
@@ -44,16 +44,19 @@ export function analyzeText(text) {
   for (const [re, label] of ENDING_RES) {
     let m;
     while ((m = re.exec(text))) {
-      const key = label + ':' + m[1].slice(-4);
+      const key = label + '␟' + m[1].slice(-4);
       endingCount[key] = (endingCount[key] || 0) + 1;
     }
   }
   const hotEndings = Object.entries(endingCount)
-    .filter(([, n]) => n >= Math.max(4, sentences.length * 0.12))
-    .sort((a, b) => b[1] - a[1])
+    .map(([key, n]) => {
+      const i = key.indexOf('␟');
+      return { label: key.slice(0, i), tail: key.slice(i + 1), n };
+    })
+    .filter(x => x.n >= Math.max(4, sentences.length * 0.12))
+    .sort((a, b) => b.n - a.n)
     .slice(0, 5);
-  for (const [key, n] of hotEndings) {
-    const [label, tail] = key.split(':');
+  for (const { label, tail, n } of hotEndings) {
     issues.push({ level: 'warn', text: `文末「${esc(tail)}${label.replace('〜', '')}」系が${n}回（全${sentences.length}文中 ${Math.round(n / sentences.length * 100)}%）。単調になりがちです` });
   }
 
