@@ -4,6 +4,8 @@ import { appAlert, appPrompt, esc } from './util.js';
 import { current, fun, saveFun } from './state.js';
 import { clearChat, renderMessage, scrollChat, mdRender } from './messages.js';
 import { sendInstruction, applyVars } from './chat.js';
+import { Diff } from './vendor.bundle.js';
+import { showResultModal } from './util.js';
 
 // ---------- 音声入力 ----------
 let recognition = null;
@@ -129,21 +131,43 @@ export function openHistoryModal() {
     return;
   }
   for (const s of snaps) {
+    const baseSnap = snaps.find(x => x !== s && x.content !== s.content);
     const div = document.createElement('div');
     div.className = 'card-item';
+    const diffBtn = baseSnap ? '<button class="qb qb-diff">差分</button>' : '';
     div.innerHTML = `<strong>${esc(s.label || '版')}</strong> <span class="hint">${new Date(s.ts).toLocaleString('ja-JP')} · ${s.content.length}字</span>
       <details style="margin-top:6px"><summary class="hint" style="cursor:pointer">内容を表示</summary><div class="history-content">${mdRender(s.content)}</div></details>
       <div class="params-row" style="margin-top:6px">
         <button class="qb">コピー</button>
+        ${diffBtn}
         <button class="qb qb-restore">この内容を確認</button>
       </div>`;
     div.querySelector('.qb').onclick = () => navigator.clipboard.writeText(s.content);
+    const diffEl = div.querySelector('.qb-diff');
+    if (diffEl) diffEl.onclick = () => showLineDiff(s, baseSnap);
     div.querySelector('.qb-restore').onclick = () => {
       appAlert(s.content.slice(0, 2000) + (s.content.length > 2000 ? '\n…' : ''));
     };
     el.appendChild(div);
   }
   $('historyModal').classList.remove('hidden');
+}
+
+// ---------- 差分表示（jsdiff） ----------
+function showLineDiff(snap, baseSnap) {
+  const parts = Diff.diffLines(snap.content, baseSnap.content);
+  let html = '', lines = 0, truncated = false;
+  for (const p of parts) {
+    const cls = p.added ? 'diff-add' : p.removed ? 'diff-del' : 'diff-ctx';
+    const sign = p.added ? '+' : p.removed ? '−' : ' ';
+    for (const line of p.value.replace(/\n$/, '').split('\n')) {
+      if (++lines > 500) { truncated = true; break; }
+      html += `<div class="${cls}"><span class="diff-sign">${sign}</span>${esc(line) || '&nbsp;'}</div>`;
+    }
+    if (truncated) break;
+  }
+  if (truncated) html += '<div class="hint">…以降省略</div>';
+  showResultModal(`差分: ${snap.label || '版'} ⇔ ${new Date(baseSnap.ts).toLocaleString('ja-JP')}`, html);
 }
 
 // ---------- 執筆タイマー ----------

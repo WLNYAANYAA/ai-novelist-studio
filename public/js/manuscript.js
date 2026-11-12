@@ -1,8 +1,9 @@
 // ---------- Manuscript（原稿ペイン） ----------
 import { $ } from './dom.js';
-import { api, appPrompt, appConfirm, appAlert, appDialog, downloadFile } from './util.js';
+import { api, appPrompt, appConfirm, appAlert, appDialog, downloadFile, showResultModal } from './util.js';
 import { allCards } from './state.js';
 import { callApiOnce } from './context.js';
+import { Chart, registerables } from './vendor.bundle.js';
 
 let manuscript = { title: '無題', chapters: [] };
 let msSel = { chapterId: null, sceneId: null };
@@ -33,7 +34,8 @@ export function updateMsStats() {
   const total = msTotalChars();
   const goal = parseInt(manuscript.goal, 10) || 0;
   const today = new Date().toISOString().slice(0, 10);
-  manuscript._stats = manuscript._stats || { date: '', dayChars: 0, totalChars: 0 };
+  manuscript._stats = manuscript._stats || { date: '', dayChars: 0, totalChars: 0, days: {} };
+  manuscript._stats.days = manuscript._stats.days || {};
   if (manuscript._stats.date !== today) {
     manuscript._stats.date = today;
     manuscript._stats.dayChars = 0;
@@ -41,6 +43,12 @@ export function updateMsStats() {
   const diff = total - (manuscript._stats.totalChars || 0);
   if (diff > 0) manuscript._stats.dayChars += diff;
   manuscript._stats.totalChars = total;
+  manuscript._stats.days[today] = manuscript._stats.dayChars;
+  // 90日より古い履歴は削除
+  const cutoff = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
+  for (const d of Object.keys(manuscript._stats.days)) {
+    if (d < cutoff) delete manuscript._stats.days[d];
+  }
   const pct = goal ? Math.min(100, Math.round(total / goal * 100)) : 0;
   el.textContent = `総計 ${total.toLocaleString()}字`
     + (goal ? ` / 目標 ${goal.toLocaleString()}字 (${pct}%)` : '')
@@ -55,6 +63,44 @@ export function msSetGoal(v) {
   manuscript.goal = String(v || '').trim();
   updateMsStats();
   scheduleMsSave();
+}
+
+// ---------- 執筆グラフ（chart.js） ----------
+let chartRegistered = false;
+let msChart = null;
+export function openWritingChart() {
+  const days = manuscript._stats?.days || {};
+  const labels = Object.keys(days).sort().slice(-30);
+  if (!labels.length) { appAlert('まだグラフにできる執筆データがありません'); return; }
+  showResultModal('日別の執筆文字数（直近' + labels.length + '日）', '<canvas id="msChartCanvas" height="240"></canvas>');
+  const canvas = $('msChartCanvas');
+  if (!canvas) return;
+  if (!chartRegistered) {
+    Chart.register(...registerables);
+    chartRegistered = true;
+  }
+  if (msChart) { msChart.destroy(); msChart = null; }
+  msChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: labels.map(d => d.slice(5)),
+      datasets: [{
+        label: '文字数',
+        data: labels.map(d => days[d]),
+        backgroundColor: 'rgba(120,160,255,.55)',
+        borderRadius: 3,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { color: '#888' }, grid: { color: 'rgba(128,128,128,.15)' } },
+        x: { ticks: { color: '#888', maxRotation: 60 }, grid: { display: false } },
+      },
+    },
+  });
 }
 function scheduleMsSave() {
   clearTimeout(msSaveTimer);

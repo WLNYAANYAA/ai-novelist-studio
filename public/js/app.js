@@ -2,7 +2,7 @@
 import { $, chatEl, inputEl, convTitleEl, searchBox } from './dom.js';
 import { api, esc, appPrompt } from './util.js';
 import { config, fun, abortCtrl, allTemplates, current, setConfig, setAllCards, setAllTemplates } from './state.js';
-import { loadManuscript, toggleManuscriptPane, exportManuscript, msAddChapter, msAddScene, msDelete, msScene, scheduleMsSave, msSetGoal, msForeshadowCheck, updateMsStats } from './manuscript.js';
+import { loadManuscript, toggleManuscriptPane, exportManuscript, msAddChapter, msAddScene, msDelete, msScene, scheduleMsSave, msSetGoal, msForeshadowCheck, updateMsStats, openWritingChart } from './manuscript.js';
 import { refreshSources, openSourcesModal, fillSourceProjectSelect, resetSourceForm, saveSource, deleteSource, importSourceFile, renderSourceList } from './sources.js';
 import { refreshDocuments, initDocEditor } from './documents.js';
 import { refreshConvList, restoreTabs, newConversation, renameConversation, saveProfile, deleteSelectedConvs, clearConvSelection, renderConvList, onSearchInput, queueDraftSave } from './conversations.js';
@@ -61,6 +61,7 @@ function bindUI() {
   $('btnMsAddScene').onclick = msAddScene;
   $('btnMsDel').onclick = msDelete;
   $('btnMsForeshadow').onclick = msForeshadowCheck;
+  $('btnMsChart').onclick = openWritingChart;
   $('msGoal').onchange = e => msSetGoal(e.target.value);
   $('msSceneTitle').addEventListener('input', () => {
     const sc = msScene(); if (!sc) return;

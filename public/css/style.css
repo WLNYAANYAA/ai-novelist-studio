@@ -1065,3 +1065,10 @@ body.cat-ears #convTitle::after { left: 26px; transform: rotate(14deg); }
   border-radius: var(--radius-sm); padding: 12px 14px;
 }
 @media (max-width: 760px) { .reader-grid { grid-template-columns: 1fr; } }
+
+/* ---------- 差分表示 ---------- */
+.diff-add { background: rgba(80, 200, 120, .14); color: #7fd6a4; padding: 1px 6px; border-radius: 3px; font-family: monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all; }
+.diff-del { background: rgba(220, 80, 80, .14); color: #f0a0a0; padding: 1px 6px; border-radius: 3px; font-family: monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all; text-decoration: line-through; }
+.diff-ctx { color: var(--text-dim); padding: 1px 6px; font-family: monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all; }
+.diff-sign { display: inline-block; width: 1.2em; user-select: none; opacity: .7; }
+#resultBody { font-family: monospace; }

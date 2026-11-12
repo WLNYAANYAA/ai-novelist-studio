@@ -79,6 +79,26 @@ export function downloadFile(name, content, mime) {
   URL.revokeObjectURL(a.href);
 }
 
+// ---------- バイナリ→base64（PDF/DOCX取込用・大きいファイル対応で分割） ----------
+export function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => {
+      try {
+        const u8 = new Uint8Array(fr.result);
+        let bin = '';
+        const CHUNK = 0x8000;
+        for (let i = 0; i < u8.length; i += CHUNK) {
+          bin += String.fromCharCode.apply(null, u8.subarray(i, i + CHUNK));
+        }
+        resolve(btoa(bin));
+      } catch (e) { reject(e); }
+    };
+    fr.onerror = () => reject(fr.error);
+    fr.readAsArrayBuffer(file);
+  });
+}
+
 // ---------- 汎用結果モーダル ----------
 export function showResultModal(title, html) {
   $('resultTitleText').textContent = title;

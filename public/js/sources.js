@@ -1,6 +1,6 @@
 // ---------- Sources（参照資料・プロジェクト別） ----------
 import { $ } from './dom.js';
-import { api, esc, appAlert, appConfirm, appPrompt } from './util.js';
+import { api, esc, appAlert, appConfirm, appPrompt, fileToBase64 } from './util.js';
 import { allSources, setAllSources } from './state.js';
 import { renderConvProjectFilter } from './conversations.js';
 
@@ -101,17 +101,36 @@ export async function deleteSource() {
   renderSourceList();
   resetSourceForm();
 }
-export function importSourceFile(file) {
+async function registerSource(name, project, content) {
+  await api('/api/sources', { method: 'POST', body: JSON.stringify({ name, project, content }) });
+  await refreshSources();
+  renderProjectFilter();
+  renderSourceList();
+  resetSourceForm();
+}
+
+export async function importSourceFile(file) {
+  const name = file.name.replace(/\.[^.]+$/, '');
+  const ext = (file.name.match(/\.([^.]+)$/) || [])[1] || '';
+  const f = ($('srcProjectFilter') || {}).value || '__all';
+  const project = (f && f !== '__all' && f !== '__none' && f !== '__new') ? f : '';
+
+  if (['pdf', 'docx'].includes(ext.toLowerCase())) {
+    if (file.size > 15 * 1024 * 1024) { appAlert('ファイルが大きすぎます（15MBまで）'); return; }
+    try {
+      const dataBase64 = await fileToBase64(file);
+      const r = await api('/api/import/text', { method: 'POST', body: JSON.stringify({ name, ext, dataBase64 }) });
+      if (!r.text || !r.text.trim()) { appAlert('テキストを抽出できませんでした。スキャンPDFや画像PDFの可能性があります'); return; }
+      await registerSource(r.name || name, project, r.text);
+    } catch (e) {
+      appAlert('取り込みに失敗しました: ' + (e.message || e));
+    }
+    return;
+  }
+
   const reader = new FileReader();
   reader.onload = async () => {
-    const name = file.name.replace(/\.[^.]+$/, '');
-    const f = ($('srcProjectFilter') || {}).value || '__all';
-    const project = (f && f !== '__all' && f !== '__none' && f !== '__new') ? f : '';
-    await api('/api/sources', { method: 'POST', body: JSON.stringify({ name, project, content: String(reader.result || '') }) });
-    await refreshSources();
-    renderProjectFilter();
-    renderSourceList();
-    resetSourceForm();
+    await registerSource(name, project, String(reader.result || ''));
   };
   reader.readAsText(file, 'utf-8');
 }

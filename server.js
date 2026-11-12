@@ -3,6 +3,9 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { DatabaseSync } = require('node:sqlite');
+// ファイル取り込み用ライブラリ（PDF/DOCXのテキスト抽出）
+const { PDFParse } = require('pdf-parse');
+const mammoth = require('mammoth');
 
 const app = express();
 const PORT = process.env.PORT || 3737;
@@ -171,7 +174,7 @@ function getLanUrl() {
   return null;
 }
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '25mb' }));
 
 // ---------- アクセスキー認証（ACCESS_TOKEN環境変数がある時のみ有効） ----------
 const ACCESS_TOKEN = process.env.ACCESS_TOKEN || '';
@@ -635,6 +638,36 @@ app.delete('/api/documents/:id', (req, res) => {
   delete documents[req.params.id];
   deleteDoc('doc', req.params.id);
   res.json({ ok: true });
+});
+
+// ---------- ファイル取り込み（PDF/DOCX → テキスト抽出） ----------
+app.post('/api/import/text', async (req, res) => {
+  const b = req.body || {};
+  const ext = String(b.ext || '').toLowerCase().replace(/^\./, '');
+  let buf;
+  try { buf = Buffer.from(String(b.dataBase64 || ''), 'base64'); }
+  catch { return res.status(400).json({ error: 'ファイルデータが不正です' }); }
+  if (!buf.length) return res.status(400).json({ error: 'ファイルが空です' });
+  try {
+    let text = '';
+    if (ext === 'pdf') {
+      const parser = new PDFParse({ data: new Uint8Array(buf) });
+      try {
+        const r = await parser.getText();
+        text = r.text || '';
+      } finally {
+        await parser.destroy().catch(() => {});
+      }
+    } else if (ext === 'docx') {
+      const r = await mammoth.extractRawText({ buffer: buf });
+      text = r.value || '';
+    } else {
+      return res.status(400).json({ error: '対応していない形式です（pdf/docxのみ）' });
+    }
+    res.json({ name: String(b.name || '取込').slice(0, 200), text: text.slice(0, 500000) });
+  } catch (e) {
+    res.status(500).json({ error: 'テキスト抽出に失敗しました: ' + (e.message || e) });
+  }
 });
 
 // ---------- Project presets（プロジェクト単位のコンテキスト一括適用） ----------

@@ -6,6 +6,23 @@ import { clearChat, renderMessage, scrollChat, updateCharCount } from './message
 import { updateTokenBadge } from './chat.js';
 import { hideTagSug } from './tags.js';
 import { maybeAutoApplyPreset, updatePresetStatus } from './presets.js';
+import { Fuse } from './vendor.bundle.js';
+
+// 会話タイトルのあいまい検索用インデックス（fuse.js）
+let convFuse = null;
+let convFuseList = null;
+function fuzzyConvIds(q) {
+  if (convFuseList !== conversations) {
+    convFuseList = conversations;
+    convFuse = new Fuse(conversations, {
+      keys: ['title', 'project'],
+      threshold: 0.4,
+      ignoreLocation: true,
+      minMatchCharLength: 2,
+    });
+  }
+  return new Set(convFuse.search(q).map(h => h.item.id));
+}
 
 export let conversations = [];
 export let tabs = [];        // [{type:'conv'|'doc', id}] 開いているタブ
@@ -122,8 +139,12 @@ export function renderConvList() {
   const pf = ($('convProjectFilter') || {}).value || '__all';
   convListEl.innerHTML = '';
   searchResultsEl.classList.add('hidden');
+  const fuzzyIds = q.length >= 2 ? fuzzyConvIds(q) : null;
   visibleConvs = conversations.filter(c => {
-    if (q && !(c.title || '').toLowerCase().includes(q)) return false;
+    if (q) {
+      const title = (c.title || '').toLowerCase();
+      if (!title.includes(q) && !(fuzzyIds && fuzzyIds.has(c.id))) return false;
+    }
     if (pf === '__all') return true;
     if (pf === '__none') return !c.project;
     return c.project === pf;

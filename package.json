@@ -60,8 +60,13 @@
     "@tiptap/extension-underline": "^2.27.3",
     "@tiptap/pm": "^2.27.3",
     "@tiptap/starter-kit": "^2.27.3",
+    "chart.js": "^4.6.1",
+    "diff": "^9.0.0",
     "express": "^5.3.0",
-    "jreadability": "^1.0.2"
+    "fuse.js": "^7.5.0",
+    "jreadability": "^1.0.2",
+    "mammoth": "^1.13.0",
+    "pdf-parse": "^2.4.5"
   },
   "devDependencies": {
     "electron": "^45.2.3",
