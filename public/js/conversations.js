@@ -5,6 +5,7 @@ import { current, setCurrent, allSources, allDocs, draftKey } from './state.js';
 import { clearChat, renderMessage, scrollChat, updateCharCount } from './messages.js';
 import { updateTokenBadge } from './chat.js';
 import { hideTagSug } from './tags.js';
+import { maybeAutoApplyPreset, updatePresetStatus } from './presets.js';
 
 export let conversations = [];
 export let tabs = [];        // [{type:'conv'|'doc', id}] 開いているタブ
@@ -333,6 +334,7 @@ export async function loadConv(id) {
   clearChat();
   for (const m of current.messages || []) renderMessage(m);
   loadProfileToPanel();
+  maybeAutoApplyPreset().then(updatePresetStatus).catch(() => {});
   updateTokenBadge();
   updateCharCount();
   scrollChat(true);
@@ -412,6 +414,7 @@ function loadProfileToPanel() {
     '<option value="__new">＋新しいプロジェクト…</option>';
   if (curProj && !pnames.includes(curProj)) pproj.add(new Option(curProj, curProj));
   pproj.value = curProj;
+  updatePresetStatus();
 }
 export { loadProfileToPanel };
 export async function saveProfile() {

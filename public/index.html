@@ -192,6 +192,15 @@
             <select id="pProject"><option value="">（なし）</option><option value="__new">＋新しいプロジェクト…</option></select>
           </label>
         </div>
+        <div class="params-row" title="プロジェクトプリセット：カード選択・ソース参照・文体プリセットをプロジェクト単位で保存し、会話に一括適用できます">
+          <span id="presetStatus" class="hint" style="flex:1"></span>
+          <label class="hint" style="display:flex;align-items:center;gap:4px;white-space:nowrap"><input type="checkbox" id="pPresetAuto"> 自動適用</label>
+        </div>
+        <div class="params-row">
+          <button id="btnPresetSaveCur" class="btn-ghost btn-sm">現在の設定をプリセットに保存</button>
+          <button id="btnPresetApply" class="btn-ghost btn-sm">プリセットを適用</button>
+          <button id="btnPresetClear" class="btn-ghost btn-sm">解除</button>
+        </div>
         <div class="params-row">
           <button id="btnSaveProfile" class="btn-primary btn-sm">この会話に保存</button>
           <span id="profileSaved" class="hint"></span>
@@ -733,6 +742,6 @@
 <script src="/js/editor.bundle.js?v=2"></script>
 <script src="/js/marked.min.js?v=22"></script>
 <script src="/js/purify.min.js?v=22"></script>
-<script type="module" src="/js/app.js?v=33"></script>
+<script type="module" src="/js/app.js?v=34"></script>
 </body>
 </html>

@@ -14,6 +14,7 @@ import { openSettings, saveSettings, updateModelHint, PROVIDER_URLS, openTplModa
 import { openCardsModal, openCardPicker, saveCard, resetCardForm, deleteCard, saveCardPick } from './cards.js';
 import { runPipeline, genVariants, analyzeEmotion, collectTerms, extractStyle, showWritingLog, refreshStyleOptions, openStyleAnalyzer, fillStyleSample, runStyleAnalysis, saveStyleAnalysisAsPreset, saveStyleAnalysisAsCard, saveStyleDNA, clearStyleDNA, readerSimulate, openBrainDump, runBrainDump, foreshadowTracker } from './ai-tools.js';
 import { runDupCheck } from './lint.js';
+import { refreshPresets, saveProjectPreset, applyProjectPreset, clearProjectPreset, updatePresetStatus } from './presets.js';
 import { togglePin, toggleTimer, toggleBgm, toggleEars, setAiName, toggleVoice, toggleNeko, toggleSakura, toggleInfinite, onMoodChange, moodUp, cycleTheme, applyTheme, updateAiNameTag, syncFunButtons, updateTimerDisplay, restorePin, initSelectionPopup, renderQuickReplies, addQuickReply, toggleWritingMode, showOutline, openHistoryModal, toggleSidebar } from './features.js';
 import { openMacroModal, armMacroRec, saveMacro, resetMacroForm, macroRecArmed, macros, comboFromEvent, runMacro, fireHotkey, syncGlobalHotkeys } from './macros.js';
 
@@ -25,6 +26,7 @@ async function init() {
   loadManuscript();
   refreshSources();
   refreshDocuments();
+  refreshPresets();
   await refreshConvList();
   await restoreTabs();
   bindUI();
@@ -150,6 +152,9 @@ function bindUI() {
 
   $('btnParams').onclick = () => $('paramsPanel').classList.toggle('hidden');
   $('btnSaveProfile').onclick = saveProfile;
+  $('btnPresetSaveCur').onclick = saveProjectPreset;
+  $('btnPresetApply').onclick = applyProjectPreset;
+  $('btnPresetClear').onclick = clearProjectPreset;
   $('btnScene').onclick = insertSceneDivider;
   $('btnExport').onclick = exportDoc;
   $('btnHistory').onclick = openHistoryModal;

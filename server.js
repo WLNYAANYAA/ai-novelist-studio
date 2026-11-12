@@ -156,6 +156,7 @@ let templates = loadStore('template');
 let manuscript = loadDoc('manuscript', 'main', { title: '無題', chapters: [] });
 let sources = loadStore('source');
 let documents = loadStore('doc');
+let projectPresets = loadStore('projectPreset');
 // 実際に 0.0.0.0 で外部公開中か（startListener で更新）
 let lanPublic = false;
 
@@ -633,6 +634,35 @@ app.delete('/api/documents/:id', (req, res) => {
   if (!documents[req.params.id]) return res.status(404).json({ error: 'not found' });
   delete documents[req.params.id];
   deleteDoc('doc', req.params.id);
+  res.json({ ok: true });
+});
+
+// ---------- Project presets（プロジェクト単位のコンテキスト一括適用） ----------
+app.get('/api/project-presets', (req, res) => {
+  res.json(Object.values(projectPresets));
+});
+app.put('/api/project-presets/:project', (req, res) => {
+  const project = decodeURIComponent(req.params.project).slice(0, 100);
+  const b = req.body || {};
+  const id = 'preset:' + project;
+  projectPresets[id] = {
+    id,
+    project,
+    cardIds: Array.isArray(b.cardIds) ? b.cardIds.map(String).slice(0, 200) : [],
+    sourceProject: String(b.sourceProject || '').slice(0, 100),
+    useSources: b.useSources === true,
+    stylePreset: String(b.stylePreset || '').slice(0, 2000),
+    autoApply: b.autoApply === true,
+    updated: Date.now()
+  };
+  writeDoc('projectPreset', id, projectPresets[id]);
+  res.json(projectPresets[id]);
+});
+app.delete('/api/project-presets/:project', (req, res) => {
+  const id = 'preset:' + decodeURIComponent(req.params.project);
+  if (!projectPresets[id]) return res.status(404).json({ error: 'not found' });
+  delete projectPresets[id];
+  deleteDoc('projectPreset', id);
   res.json({ ok: true });
 });
 
