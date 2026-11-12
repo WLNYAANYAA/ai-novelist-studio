@@ -18,12 +18,10 @@ app.setPath('userData', path.join(os.homedir(), 'AppData', 'Roaming', 'AI Noveli
 // app.commandLine.appendSwitch('no-sandbox');
 
 const PORT = 3737;
-const RATIO_W = 17;
-const RATIO_H = 9;
 const WIN_W = 1700;
-const WIN_H = Math.round(WIN_W * RATIO_H / RATIO_W); // 900
-const MIN_W = 1024;
-const MIN_H = Math.round(MIN_W * RATIO_H / RATIO_W);
+const WIN_H = 900;
+const MIN_W = 900;
+const MIN_H = 560;
 const STATE_FILE = path.join(app.getPath('userData'), 'window-state.json');
 
 // ウィンドウサイズの保存・復元
@@ -119,19 +117,8 @@ async function createWindow() {
     return true;
   });
 
-  // 17:9 比率を維持するリサイズ制御＋サイズ保存
-  let adjusting = false;
-  win.on('resize', () => {
-    saveWindowSize(win);
-    if (adjusting) return;
-    const [w, h] = win.getSize();
-    const targetW = Math.round(h * RATIO_W / RATIO_H);
-    if (Math.abs(w - targetW) > 6) {
-      adjusting = true;
-      win.setSize(targetW, h);
-      setTimeout(() => { adjusting = false; }, 50);
-    }
-  });
+  // サイズ保存（縦横比の固定はしない。自由にリサイズ可能）
+  win.on('resize', () => saveWindowSize(win));
   win.on('close', () => { clearTimeout(saveTimer); writeWindowSize(win); });
 
   win.loadURL(`http://localhost:${PORT}`);
