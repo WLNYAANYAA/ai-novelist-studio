@@ -4,7 +4,7 @@ import { esc, appAlert, appPrompt, nekoifyInput, api } from './util.js';
 import { config, current, fun, busy, abortCtrl, allSources, pendingStyle, setBusyState, setAbortCtrl, setPendingStyle, draftKey } from './state.js';
 import { addMsg, addBotMsg, addUserActions, addBotActions, addSceneDivider, renderBotContent, scrollChat, updateCharCount } from './messages.js';
 import { saveConversation, refreshConvList, openConversation } from './conversations.js';
-import { selectedCardsText, maybeAutoCompress, rawStartIndex, compressAgedMemories, callApiOnce, convTranscript } from './context.js';
+import { selectedCardsText, maybeAutoCompress, rawStartIndex, compressAgedMemories, callApiOnce } from './context.js';
 import { lorebookCardsText, tagCardsText, hideTagSug } from './tags.js';
 import { openSettings } from './settings.js';
 import { logChars } from './ai-tools.js';
@@ -24,6 +24,82 @@ export function applyVars(text) {
     .replace(/\{\{\s*char\s*\}\}/g, aiName)
     .replace(/\{\{\s*title\s*\}\}/g, current?.title || '無題')
     .replace(/\{\{\s*date\s*\}\}/g, new Date().toLocaleDateString('ja-JP'));
+}
+
+// ---------- ソース抜粋注入（全文垂れ流しをやめ、直近の会話と関連する部分だけ送る） ----------
+const SRC_TOTAL_BUDGET = 40000;  // 全ソース合計の注入上限（文字数）
+const SRC_PER_SOURCE = 12000;    // 1ソースあたりの上限
+const SRC_CHUNK = 800;           // 抜粋チャンクの大きさ
+const SRC_INTRO = 1500;          // 関連度ゼロのソースに送る冒頭の長さ
+const KW_RE = /[一-龯ァ-ヶーa-zA-Z0-9]{3,}/g;
+
+function countHits(kws, text) {
+  let score = 0;
+  for (const k of kws) {
+    let idx = 0;
+    while ((idx = text.indexOf(k, idx)) >= 0) { score++; idx += k.length; if (score > 200) return score; }
+  }
+  return score;
+}
+function srcKeywordSet(s) {
+  const kws = new Set();
+  const head = `${s.name || ''} ${s.project || ''}`.match(KW_RE) || [];
+  for (const w of head) if (w.length >= 2) kws.add(w);
+  // 本文からのキーワードは先頭3万文字だけ走査（巨大ソース対策）
+  const bodySample = (s.content || '').slice(0, 30000);
+  const words = bodySample.match(/[一-龯ァ-ヶー]{4,}|[a-zA-Z0-9]{4,}/g) || [];
+  for (const w of words) kws.add(w);
+  // 巨大ソースでのスキャン爆発を防ぐためキーワード数を制限（頭に近い＝名前・序盤の語を優先）
+  return new Set([...kws].slice(0, 400));
+}
+function recentContextText() {
+  return apiMessages().slice(-10).map(m => (m.content || '').slice(0, 2000)).join('\n').slice(0, 20000);
+}
+function buildSourceBlocks(srcList) {
+  const recent = recentContextText();
+  const blocks = [];
+  let used = 0;
+  for (const s of srcList) {
+    const content = s.content || '';
+    if (!content.trim()) continue;
+    const label = s.project ? `${s.name}（${s.project}）` : s.name;
+    let body;
+    const head = `【ソース: ${label}】\n`;
+    const room = Math.min(SRC_PER_SOURCE, SRC_TOTAL_BUDGET - used) - head.length;
+    if (room <= 200) break;
+    if (content.length <= room) {
+      body = content; // 小さいソースは丸ごと
+    } else {
+      const kws = srcKeywordSet(s);
+      const rel = countHits(kws, recent);
+      if (rel >= 3) {
+        // 関連チャンクをスコア順に拾う
+        const chunks = [];
+        for (let i = 0; i < content.length; i += SRC_CHUNK) chunks.push(content.slice(i, i + SRC_CHUNK));
+        const scored = chunks.map((c, i) => [countHits(kws, c), i]).filter(x => x[0] > 0).sort((a, b) => b[0] - a[0]);
+        const picked = [];
+        let acc = 0;
+        const seen = new Set();
+        for (const [, i] of scored) {
+          if (seen.has(i)) continue;
+          seen.add(i);
+          picked.push(i);
+          acc += chunks[i].length;
+          if (acc >= room) break;
+        }
+        picked.sort((a, b) => a - b);
+        body = picked.map(i => chunks[i]).join('\n…\n');
+        if (body.length > room) body = body.slice(0, room);
+        if (picked.length < chunks.length) body += `\n…（関連部分のみ抜粋・全${content.length.toLocaleString()}字）`;
+      } else {
+        // 関連なし：冒頭だけ送って存在だけ知らせる
+        body = content.slice(0, Math.min(SRC_INTRO, room)) + `\n…（冒頭のみ・全${content.length.toLocaleString()}字）`;
+      }
+    }
+    used += head.length + body.length;
+    blocks.push(head + body);
+  }
+  return blocks;
 }
 
 function composeSystemPrompt() {
@@ -48,18 +124,7 @@ function composeSystemPrompt() {
   const sp = p.sourceProject || (p.useSources ? '__all' : '');
   const srcList = sp ? allSources.filter(s => sp === '__all' || (s.project || '') === sp) : [];
   if (srcList.length) {
-    const budget = 40000;
-    let used = 0;
-    const blocks = [];
-    for (const s of srcList) {
-      const label = s.project ? `${s.name}（${s.project}）` : s.name;
-      const head = `【ソース: ${label}】\n`;
-      const room = budget - used - head.length;
-      if (room <= 500) break;
-      const body = (s.content || '').slice(0, room);
-      used += head.length + body.length;
-      blocks.push(head + body + ((s.content || '').length > room ? '\n…（以下省略）' : ''));
-    }
+    const blocks = buildSourceBlocks(srcList);
     if (blocks.length) {
       parts.push('【参照ソース】\n' + blocks.join('\n\n') +
         '\n\n※回答には根拠となったソース名を【出典: ソース名】の形式で明記してください。ソースに書かれていないことは推測である旨を明示してください。');
@@ -92,7 +157,10 @@ export function contextMessages() {
   // ハイブリッド記憶: 直近1往復は生テキスト、_mem印の付いた古い交換は英語圧縮メモリ側で供給。
   // まだ圧縮されていない古いメッセージは生のまま残す（圧縮完了までコンテキストを失わないため）
   const start = rawStartIndex(msgs);
-  return msgs.slice(0, start).filter(m => !m._mem).concat(msgs.slice(start));
+  const list = msgs.slice(0, start).filter(m => !m._mem).concat(msgs.slice(start));
+  // historyLimit はハイブリッド記憶でも「送信する末尾メッセージ数の上限」として有効
+  const n = parseInt(config.params.historyLimit) || 0;
+  return n > 0 ? list.slice(-n) : list;
 }
 
 export function apiKeyMissing() { return !(config.hasApiKey || config.noAuth); }
@@ -329,9 +397,16 @@ function scheduleInfinite(conv) {
 // ---------- 次の一手提案チップ ----------
 async function suggestNextSteps(botEl, conv) {
   try {
+    // 直近のやり取りだけを短く渡す（毎回の追加APIコールを軽量化）
+    const tail = conv.messages
+      .filter(m => m.role === 'user' || m.role === 'assistant')
+      .slice(-4)
+      .map(m => `${m.role === 'user' ? '【ユーザー】' : '【AI】'}\n${(m.content || '').slice(0, 500)}`)
+      .join('\n\n')
+      .slice(0, 2400);
     const { text } = await callApiOnce([
       { role: 'system', content: 'あなたは小説執筆のアシスタントです。直前の会話を読み、ユーザーが次にAIへ送りそうな指示を3つだけ考えてください。各行に1つずつ、20字以内の短い日本語の指示文のみを出力してください。番号・記号・説明・前置きは一切付けないでください。' },
-      { role: 'user', content: convTranscript(6000) }
+      { role: 'user', content: tail }
     ]);
     const items = (text || '')
       .split('\n')
@@ -472,10 +547,10 @@ const PARAM_MAP = {
   seed: 'seed', badwords: 'badwords', stoptokens: 'stoptokens'
 };
 const STRING_PARAMS = new Set(['badwords', 'stoptokens']);
-export function buildRequestBody(messages, stream) {
+export function buildRequestBody(messages, stream, opts = {}) {
   const p = config.params || {};
   const body = {
-    model: config.model,
+    model: opts.model || config.model,
     messages,
     stream
   };
@@ -488,6 +563,7 @@ export function buildRequestBody(messages, stream) {
     body[apiName] = v;
   }
   if (p.multilingual) body.multilingual_mode = true;
-  if (p.effort) body.reasoning_effort = p.effort;
+  body.reasoning_effort = opts.effort !== undefined ? opts.effort : p.effort;
+  if (!body.reasoning_effort) delete body.reasoning_effort;
   return body;
 }

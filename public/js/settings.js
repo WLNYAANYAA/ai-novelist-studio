@@ -10,7 +10,7 @@ const ADV_FIELDS = [
   ['sRepPen', 'repPen'], ['sFreqPen', 'freqPen'], ['sPresPen', 'presPen'],
   ['sTopK', 'topK'], ['sTopA', 'topA'], ['sMinP', 'minP'],
   ['sTailfree', 'tailfree'], ['sTypicalP', 'typicalP'],
-  ['sSeed', 'seed'], ['sBadwords', 'badwords'], ['sStoptokens', 'stoptokens']
+  ['sSeed', 'seed'], ['sBadwords', 'badwords'], ['sStoptokens', 'stoptokens'], ['sAuxModel', 'auxModel']
 ];
 const MODEL_INFO = {
   spiko_ultra: '最上位モデル。20万トークンの長文脈と最大の知識量。推奨。',

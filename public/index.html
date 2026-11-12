@@ -504,7 +504,13 @@
               <input type="text" id="sStoptokens" placeholder="例: 以上<<|>>終わり">
             </label>
           </div>
-          <p class="hint">※空欄の項目はAPIに送りません。novelist系モデルでは repetition_penalty≈1.1〜1.2、top_p≈0.9〜0.95 が目安です。</p>
+          <div class="params-row">
+            <label style="flex:1">内部処理用モデル（auxModel・空欄=メインと同じ）
+              <input type="text" id="sAuxModel" placeholder="例: spiko（圧縮・次の一手・文体分析など内部APIコール用）">
+            </label>
+          </div>
+          <p class="hint">※空欄の項目はAPIに送りません。novelist系モデルでは repetition_penalty≈1.1〜1.2、top_p≈0.9〜0.95 が目安です。
+            内部処理用モデルを設定すると、会話圧縮・あらすじ生成・次の一手提案・文体分析などの補助APIコールがそのモデル（reasoning_effort=low）で実行され、節約になります。</p>
         </div>
       </details>
     </div>
@@ -699,6 +705,6 @@
 <script src="/js/editor.bundle.js?v=1"></script>
 <script src="/js/marked.min.js?v=22"></script>
 <script src="/js/purify.min.js?v=22"></script>
-<script type="module" src="/js/app.js?v=31"></script>
+<script type="module" src="/js/app.js?v=32"></script>
 </body>
 </html>

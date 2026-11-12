@@ -67,7 +67,9 @@ export function selectedCardsText() {
 
 // ストリーミングなし1回生成（内部処理用）
 export async function callApiOnce(messages) {
-  const body = buildRequestBody(messages, false);
+  // 内部処理（圧縮・次の一手・推敲等）は軽量モデル＋低推論で実行して節約
+  const aux = (config.params && config.params.auxModel) || '';
+  const body = buildRequestBody(messages, false, { model: aux || undefined, effort: 'low' });
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -177,7 +179,7 @@ export async function compressContext() {
   setBusy(true);
   try {
     const { text } = await callApiOnce([
-      { role: 'system', content: 'あなたは小説の編集者です。会話ログを読み、物語の進行・設定・登場人物・未解決の要素を400字程度のあらすじに圧縮してください。' },
+      { role: 'system', content: 'You compress novel-writing chat logs into an ultra-compact English story summary for an AI novelist. Output ONLY terse English bullet facts (under 80 words): plot progress, character states, locations, events, foreshadowing, unresolved threads. No Japanese. No explanation.' },
       { role: 'user', content: transcript }
     ]);
     const summary = (text || '').trim();
