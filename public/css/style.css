@@ -3,64 +3,64 @@
    ============================================================ */
 
 :root {
-  --bg: #fafafa;
-  --bg-panel: #ffffff;
-  --bg-sidebar: #f0f0f0;
-  --bg-sidebar-hover: #e4e4e4;
-  --bg-sidebar-active: #d8d8d8;
-  --bg-input: #f5f5f5;
-  --text: #242424;
-  --text-dim: #8a8a8a;
+  --bg: #f3f3f5;
+  --bg-panel: rgba(255, 255, 255, 0.72);
+  --bg-sidebar: rgba(255, 255, 255, 0.55);
+  --bg-sidebar-hover: rgba(0, 0, 0, 0.05);
+  --bg-sidebar-active: rgba(0, 0, 0, 0.09);
+  --bg-input: rgba(255, 255, 255, 0.65);
+  --text: #262626;
+  --text-dim: #8f8f8f;
   --text-sidebar: #555555;
-  --border: #e4e4e4;
-  --border-strong: #cfcfcf;
-  --accent: #555555;
-  --accent-soft: rgba(0, 0, 0, 0.07);
-  --user-grad: linear-gradient(135deg, #555555, #888888);
+  --border: rgba(0, 0, 0, 0.07);
+  --border-strong: rgba(0, 0, 0, 0.14);
+  --accent: #4a4a4a;
+  --accent-soft: rgba(0, 0, 0, 0.06);
+  --user-grad: linear-gradient(135deg, #4a4a4a, #777777);
   --danger: #666666;
-  --radius: 14px;
-  --radius-sm: 9px;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.10);
-  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.22);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 14px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 6px 24px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.16), 0 8px 24px rgba(0, 0, 0, 0.08);
   --font-ui: system-ui, "Segoe UI", "Yu Gothic", "Hiragino Sans", sans-serif;
   --font-prose: "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif JP", Georgia, serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #161616;
-    --bg-panel: #1e1e1e;
-    --bg-sidebar: #1a1a1a;
-    --bg-sidebar-hover: #2a2a2a;
-    --bg-sidebar-active: #333333;
-    --bg-input: #1c1c1c;
-    --text: #e8e8e8;
-    --text-dim: #9a9a9a;
-    --text-sidebar: #b5b5b5;
-    --border: #333333;
-    --border-strong: #4a4a4a;
-    --accent: #bbbbbb;
-    --accent-soft: rgba(255, 255, 255, 0.10);
+    --bg: #101012;
+    --bg-panel: rgba(30, 30, 34, 0.66);
+    --bg-sidebar: rgba(22, 22, 26, 0.55);
+    --bg-sidebar-hover: rgba(255, 255, 255, 0.06);
+    --bg-sidebar-active: rgba(255, 255, 255, 0.11);
+    --bg-input: rgba(255, 255, 255, 0.07);
+    --text: #ececec;
+    --text-dim: #9c9c9c;
+    --text-sidebar: #b8b8b8;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --accent: #cfcfcf;
+    --accent-soft: rgba(255, 255, 255, 0.08);
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
     --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.35);
     --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.55);
   }
 }
 :root[data-theme="dark"] {
-  --bg: #161616;
-  --bg-panel: #1e1e1e;
-  --bg-sidebar: #1a1a1a;
-  --bg-sidebar-hover: #2a2a2a;
-  --bg-sidebar-active: #333333;
-  --bg-input: #1c1c1c;
-  --text: #e8e8e8;
-  --text-dim: #9a9a9a;
-  --text-sidebar: #b5b5b5;
-  --border: #333333;
-  --border-strong: #4a4a4a;
-  --accent: #bbbbbb;
-  --accent-soft: rgba(255, 255, 255, 0.10);
+  --bg: #101012;
+  --bg-panel: rgba(30, 30, 34, 0.66);
+  --bg-sidebar: rgba(22, 22, 26, 0.55);
+  --bg-sidebar-hover: rgba(255, 255, 255, 0.06);
+  --bg-sidebar-active: rgba(255, 255, 255, 0.11);
+  --bg-input: rgba(255, 255, 255, 0.07);
+  --text: #ececec;
+  --text-dim: #9c9c9c;
+  --text-sidebar: #b8b8b8;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --accent: #cfcfcf;
+  --accent-soft: rgba(255, 255, 255, 0.08);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.35);
   --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.55);
@@ -71,10 +71,21 @@ input[type="checkbox"] { accent-color: var(--accent); width: 14px; height: 14px;
 html, body { height: 100%; }
 body {
   font-family: var(--font-ui);
-  background: var(--bg);
   color: var(--text);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
+}
+:root:not([data-theme="dark"]) body {
+  background:
+    radial-gradient(1100px 700px at 85% -10%, rgba(255,255,255,0.95), transparent 60%),
+    radial-gradient(900px 600px at -10% 110%, rgba(255,255,255,0.5), transparent 55%),
+    var(--bg);
+}
+:root[data-theme="dark"] body {
+  background:
+    radial-gradient(1100px 700px at 85% -10%, rgba(255,255,255,0.05), transparent 60%),
+    radial-gradient(900px 600px at -10% 110%, rgba(255,255,255,0.03), transparent 55%),
+    var(--bg);
 }
 #app { display: flex; height: 100vh; }
 
@@ -1082,3 +1093,21 @@ body.cat-ears #convTitle::after { left: 26px; transform: rotate(14deg); }
 .diff-ctx { color: var(--text-dim); padding: 1px 6px; font-family: monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all; }
 .diff-sign { display: inline-block; width: 1.2em; user-select: none; opacity: .7; }
 #resultBody { font-family: monospace; }
+
+/* ---------- Glass（すりガラス質感） ---------- */
+#sidebar, #topbar, #composer, .modal-content, .dropdown-menu, #manuscriptPane, #docPane, .sel-popup {
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+}
+/* メッセージ吹き出しは半透明ガラス（個別blurは重いので背景のみ） */
+.msg.bot { background: var(--bg-panel); }
+/* 入力系を一段柔らかく */
+#input, #msEditor, .conv-rename, select, input[type="text"], input[type="number"], textarea {
+  border-color: var(--border);
+}
+#input:focus, #msEditor:focus, select:focus, input[type="text"]:focus, input[type="number"]:focus, textarea:focus {
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+/* 角丸を全体的に少し大きく */
+.conv-item, .card-item, .tab, .qb { border-radius: 12px; }
