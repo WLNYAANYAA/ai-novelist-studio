@@ -22,6 +22,7 @@ import { initWorldGraph, openGraphTab } from './worldgraph.js';
 import { initSearchReplace } from './searchreplace.js';
 import { initConsistency } from './consistency.js';
 import { initTimeMachine } from './timemachine.js';
+import { initCowrite } from './cowrite.js';
 
 // ---------- Init ----------
 async function init() {
@@ -120,6 +121,7 @@ function bindUI() {
   initSearchReplace();
   initConsistency();
   initTimeMachine();
+  initCowrite();
   initScrollWatch();
   $('btnSettings').onclick = openSettings;
   convTitleEl.title = 'ダブルクリックで会話名を変更';

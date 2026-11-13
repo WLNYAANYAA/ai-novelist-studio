@@ -369,6 +369,21 @@ function recordAiSnippet(sc, text) {
   sc.aiSnippets.push({ ts: Date.now(), text: String(text).slice(0, 100000) });
   if (sc.aiSnippets.length > 50) sc.aiSnippets = sc.aiSnippets.slice(-50);
 }
+// AI共著パネル（cowrite.js）からの適用：本文の start〜end を text に置き換える
+export function msCommitAiEdit(start, end, text) {
+  const sc = msScene();
+  if (!sc) return false;
+  const cur = sc.content || '';
+  const s = Math.max(0, Math.min(start | 0, cur.length));
+  const e = Math.max(s, Math.min(end | 0, cur.length));
+  sc.content = cur.slice(0, s) + text + cur.slice(e);
+  recordAiSnippet(sc, text);
+  renderMsTree();
+  updateMsEditor();
+  scheduleMsSave();
+  updateMsStats();
+  return true;
+}
 
 // ---------- 流れ生成などからの一括シーン追加 ----------
 // chapterTitle 指定時はその名前の章を探し、無ければ新規作成。未指定なら選択中の章（無ければ先頭/新規）

@@ -417,6 +417,21 @@
         <div class="ms-editor">
           <input id="msSceneTitle" placeholder="シーン名">
           <textarea id="msEditor" placeholder="ここに本文を書きます。AI応答の「原稿」ボタンで追記できます"></textarea>
+          <div id="msAiDock">
+            <div class="ms-ai-instr">
+              <input id="msAiInstr" placeholder="AIへの指示（空欄：選択範囲があれば推敲、なければカーソル位置に続きを執筆）">
+              <button id="btnMsAiSuggest" class="btn-primary btn-sm">AI提案</button>
+            </div>
+            <div id="msAiPreview" class="hidden">
+              <div class="ms-ai-prev-head"><span class="hint" id="msAiMode"></span></div>
+              <div id="msAiPrevText" class="ms-ai-prev-text"></div>
+              <div class="ms-ai-btns">
+                <button id="btnMsAiAccept" class="btn-primary btn-sm">採用</button>
+                <button id="btnMsAiAlt" class="btn-ghost btn-sm">別案</button>
+                <button id="btnMsAiReject" class="btn-ghost btn-sm">却下</button>
+              </div>
+            </div>
+          </div>
           <div class="hint" id="msStatus"></div>
         </div>
       </aside>

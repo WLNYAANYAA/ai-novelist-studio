@@ -952,6 +952,30 @@ body.cat-ears #convTitle::after { left: 26px; transform: rotate(14deg); }
   font-family: var(--font-prose); font-size: 14px; line-height: 1.8;
   padding: 12px 14px;
 }
+
+/* ---------- AI共著ドック ---------- */
+#msAiDock { display: flex; flex-direction: column; gap: 6px; }
+.ms-ai-instr { display: flex; gap: 6px; }
+#msAiInstr {
+  flex: 1; min-width: 0; padding: 7px 10px; font-size: 12.5px;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--bg-input); color: var(--text);
+}
+#msAiInstr:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+#msAiPreview {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-panel); padding: 8px 10px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.ms-ai-prev-head { display: flex; align-items: center; gap: 6px; }
+.ms-ai-prev-text {
+  max-height: 180px; overflow-y: auto;
+  font-family: var(--font-prose); font-size: 13px; line-height: 1.8;
+  white-space: pre-wrap; word-break: break-word;
+  padding: 6px 8px; border-radius: 6px;
+  background: var(--bg-input); color: var(--text);
+}
+.ms-ai-btns { display: flex; gap: 6px; justify-content: flex-end; }
 @media (max-width: 760px) {
   #manuscriptPane { position: fixed; inset: 0; z-index: 90; width: auto; border-left: none; }
   .ms-editor { max-height: none; }
