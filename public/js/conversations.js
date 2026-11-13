@@ -182,7 +182,17 @@ export function renderConvList() {
     const div = document.createElement('div');
     div.className = 'conv-item' + (current && c.id === current.id && activeTabType === 'conv' ? ' active' : '') + (selectedConvs.has(c.id) ? ' selected' : '') + (isConvUnread(c) ? ' unread' : '');
     div.innerHTML = `<div class="title"></div><div class="meta"></div>`;
-    div.querySelector('.title').textContent = c.title;
+    const titleEl = div.querySelector('.title');
+    titleEl.classList.add('conv-title-flex');
+    const star = document.createElement('span');
+    star.className = 'conv-star' + (isConvStarred(c.id) ? ' on' : '');
+    star.textContent = isConvStarred(c.id) ? '★' : '☆';
+    star.title = 'スター（重要な会話。先頭に表示）';
+    star.onclick = (e) => { e.stopPropagation(); toggleConvStar(c.id); };
+    const titleTxt = document.createElement('span');
+    titleTxt.className = 'conv-title-text';
+    titleTxt.textContent = c.title;
+    titleEl.append(star, titleTxt);
     div.querySelector('.meta').textContent = `${c.project ? '📁' + c.project + ' · ' : ''}${c.messageCount} msgs · ${fmtDate(c.updated)}`;
     const del = document.createElement('span');
     del.className = 'del';
@@ -209,12 +219,6 @@ export function renderConvList() {
       }
       await refreshConvList();
     };
-    const star = document.createElement('span');
-    star.className = 'conv-star' + (isConvStarred(c.id) ? ' on' : '');
-    star.textContent = isConvStarred(c.id) ? '★' : '☆';
-    star.title = 'スター（重要な会話。先頭に表示）';
-    star.onclick = (e) => { e.stopPropagation(); toggleConvStar(c.id); };
-    div.appendChild(star);
     const ren = document.createElement('span');
     ren.className = 'del ren';
     ren.innerHTML = icon('edit');
@@ -292,7 +296,7 @@ function startConvRename(div, c) {
   };
   input.onkeydown = (e) => {
     e.stopPropagation();
-    if (e.key === 'Enter') finish(true);
+    if (e.key === 'Enter' && !e.isComposing) finish(true);
     if (e.key === 'Escape') finish(false);
   };
   input.onclick = (e) => e.stopPropagation();
@@ -314,9 +318,18 @@ const reorderTabs = (fromKey, toKey) => {
   tabs.splice(ti, 0, mv);
   saveTabs(); renderTabs();
 };
+let tabHtml5Drag = false;
+// ドラッグ終了イベントの取りこぼし対策（ソース要素破棄・ウィンドウ外ドロップ等）
+document.addEventListener('dragend', () => { dragTabKey = null; tabHtml5Drag = false; }, true);
+document.addEventListener('drop', () => { tabHtml5Drag = false; }, true);
+document.addEventListener('pointerdown', () => {
+  if (tabHtml5Drag) { tabHtml5Drag = false; dragTabKey = null; renderTabs(); }
+}, true);
 export function renderTabs() {
   const el = $('tabs');
   if (!el) return;
+  // HTML5ドラッグ中にinnerHTML再構築するとdragendが失われカーソルが残るためスキップ
+  if (tabHtml5Drag) return;
   el.innerHTML = '';
   for (const t of tabs) {
     const isDoc = t.type === 'doc';
@@ -345,6 +358,7 @@ export function renderTabs() {
     div.draggable = true;
     div.addEventListener('dragstart', (e) => {
       dragTabKey = tabKey(t);
+      tabHtml5Drag = true;
       e.dataTransfer.effectAllowed = 'move';
       try { e.dataTransfer.setData('text/plain', dragTabKey); } catch {}
     });
@@ -354,10 +368,10 @@ export function renderTabs() {
       e.preventDefault(); e.stopPropagation();
       div.classList.remove('drag-over');
       reorderTabs(dragTabKey, tabKey(t));
-      dragTabKey = null;
+      dragTabKey = null; tabHtml5Drag = false;
     });
     div.addEventListener('dragend', () => {
-      dragTabKey = null;
+      dragTabKey = null; tabHtml5Drag = false;
       el.querySelectorAll('.drag-over').forEach(x => x.classList.remove('drag-over'));
     });
     el.appendChild(div);

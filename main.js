@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, dialog } = require('electron');
 const path = require('path');
 const os = require('os');
 
@@ -50,8 +50,9 @@ function saveWindowSize(win) {
 }
 
 // Expressサーバーを同一プロセスで起動
+let appServer = null;
 try {
-  require('./server.js');
+  appServer = require('./server.js');
 } catch (e) {
   console.error('server.js の起動に失敗:', e.message);
 }
@@ -74,6 +75,37 @@ function waitForServer(retries = 50) {
 
 async function createWindow() {
   await waitForServer();
+
+  // ポート3737を別のAI Novelist Studio（古いサーバー等）が占有している場合、
+  // そちらの古いフロントエンド/インメモリデータを読みに行ってしまうため起動を中止する
+  try {
+    const v = await new Promise((resolve, reject) => {
+      require('http').get(`http://localhost:${PORT}/api/version`, (res) => {
+        let d = '';
+        res.on('data', c => d += c);
+        res.on('end', () => { try { resolve(JSON.parse(d)); } catch { reject(new Error('bad json')); } });
+      }).on('error', reject);
+    });
+    if (!appServer || v.boot !== appServer.bootId) {
+      dialog.showErrorBox(
+        'AI Novelist Studio',
+        'ポート 3737 は別の「AI Novelist Studio」または別アプリに使われています。\n\n' +
+        '古いデータで上書きされるのを防ぐため起動を中止しました。\n' +
+        '既に起動しているインスタンスを閉じてから、もう一度お試しください。'
+      );
+      app.quit();
+      return;
+    }
+  } catch {
+    // /api/version に応答しない = 自分のサーバーが立っていない。接続エラーページを出すより中止する
+    dialog.showErrorBox(
+      'AI Novelist Studio',
+      `http://localhost:${PORT} のサーバーを起動できませんでした。\n` +
+      'ポートが他のアプリに使われている可能性があります。'
+    );
+    app.quit();
+    return;
+  }
 
   const saved = loadWindowSize();
   const win = new BrowserWindow({

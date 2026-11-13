@@ -245,7 +245,7 @@ function bindUI() {
   $('btnStop').onclick = () => abortCtrl && abortCtrl.abort();
   searchBox.addEventListener('input', onSearchInput);
   searchBox.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !e.isComposing) {
       const first = searchResultsEl.querySelector('.search-item:not(.hint)');
       if (first) { e.preventDefault(); first.click(); }
     }
@@ -253,6 +253,7 @@ function bindUI() {
   $('convProjectFilter').addEventListener('change', renderConvList);
   inputEl.addEventListener('keydown', (e) => {
     if (tagSugKey(e)) return;
+    if (e.isComposing) return; // IME変換中のEnterは確定のみ（送信しない）
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(); }
     else if (e.key === 'Enter' && !e.shiftKey && config?.sendOnEnter) { e.preventDefault(); send(); }
   });

@@ -372,7 +372,7 @@ export async function sendTextToDocument(text) {
   });
   await refreshDocuments();
   await openDocument(doc.id);
-  updateDocStatus(`「${full.title || title}」に追加しました`);
+  updateDocStatus(`「${fullTitle || title}」に追加しました`);
 }
 
 function exportCurrentDocument() {
@@ -413,8 +413,8 @@ export function initDocEditor() {
   // Ctrl/Cmd+S: 表示中ドキュメントを即時保存（デバウンス待ちを flush）
   document.addEventListener('keydown', (e) => {
     if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 's') return;
+    e.preventDefault(); // アプリ内ではブラウザの「ページを保存」を出さない
     if (!currentDoc || $('docPane')?.classList.contains('hidden')) return;
-    e.preventDefault();
     if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
     saveDocNow();
   });

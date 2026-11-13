@@ -123,6 +123,7 @@ function applyTagSug(tag) {
   inputEl.focus();
 }
 export function tagSugKey(e) {
+  if (e.isComposing) return false; // IME変換中は候補選択にキーを使わせる
   if (!tagSugEl || tagSugEl.classList.contains('hidden') || !tagSugItems.length) return false;
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     e.preventDefault();

@@ -309,8 +309,13 @@ function edgePoint(g, t) {
   };
 }
 
+function clearDrag() {
+  if (drag && drag.pid != null) { try { svg.releasePointerCapture(drag.pid); } catch {} }
+  drag = null;
+}
 function render() {
   if (!svg) return;
+  clearDrag(); // ビュー再構築時にドラッグ状態を持ち越さない
   // 同一ペアのエッジにオフセットを割当
   const pairCount = new Map();
   allEdges.forEach(e => {
@@ -472,6 +477,8 @@ function bindMinimap() {
   mmSvg.addEventListener('pointerdown', (e) => { down = true; jump(e); try { mmSvg.setPointerCapture(e.pointerId); } catch {} });
   mmSvg.addEventListener('pointermove', (e) => { if (down) jump(e); });
   mmSvg.addEventListener('pointerup', () => { down = false; });
+  mmSvg.addEventListener('pointercancel', () => { down = false; });
+  mmSvg.addEventListener('lostpointercapture', () => { down = false; });
 }
 
 function setStats(extra) {
@@ -523,9 +530,9 @@ function bindCanvas() {
     const edge = e.target.closest ? e.target.closest('.gedge') : null;
     if (g) {
       const n = nodes.get(g.dataset.id);
-      drag = { mode: 'node', id: n.id, node: n, sx: p.x, sy: p.y, ox: n.x, oy: n.y, moved: false, target: g };
+      drag = { mode: 'node', id: n.id, node: n, sx: p.x, sy: p.y, ox: n.x, oy: n.y, moved: false, target: g, pid: e.pointerId };
     } else {
-      drag = { mode: 'pan', sx: p.x, sy: p.y, vx: view.x, vy: view.y, moved: false, target: edge };
+      drag = { mode: 'pan', sx: p.x, sy: p.y, vx: view.x, vy: view.y, moved: false, target: edge, pid: e.pointerId };
     }
     try { svg.setPointerCapture(e.pointerId); } catch {}
   });
@@ -577,6 +584,10 @@ function bindCanvas() {
       }
     }
   });
+  // タブ切替等でポインターキャプチャが中断された場合にドラッグ状態を残さない
+  // （captureがdisplay:none要素に残るとカーソルが消える不具合の対策）
+  svg.addEventListener('pointercancel', clearDrag);
+  svg.addEventListener('lostpointercapture', clearDrag);
   svg.addEventListener('wheel', (e) => {
     e.preventDefault();
     const p = svgPoint(e);
@@ -606,7 +617,7 @@ function nodeLink(id) {
 }
 
 function nodeActions(n) {
-  const btns = [`<button class="btn-ghost btn-sm" data-act="pin">${n.pinned ? '📌 固定中' : '📌 固定'}</button>`];
+  const btns = [`<button class="btn-ghost btn-sm${n.pinned ? ' graph-pin-on' : ''}" data-act="pin"><svg class="icon"><use href="#i-pin"/></svg> ${n.pinned ? '固定中' : '固定'}</button>`];
   if (n.type === 'doc') btns.push(`<button class="btn-ghost btn-sm" data-act="open">ドキュメントを開く</button>`);
   if (n.type === 'scene') btns.push(`<button class="btn-ghost btn-sm" data-act="open">シーンを開く</button>`);
   if (n.type === 'conv') btns.push(`<button class="btn-ghost btn-sm" data-act="open">会話を開く</button>`);
@@ -911,10 +922,12 @@ export function initWorldGraph() {
       if (e.target.checked) filterSet.add(k); else filterSet.delete(k);
       render();
     });
+    // チェックボックス操作でメニューが閉じないようにする（document clickで全メニューが閉じる仕様のため）
+    menu.addEventListener('click', (e) => e.stopPropagation());
   }
   $('graphSearch') && ($('graphSearch').addEventListener('input', (e) => {
     searchQ = e.target.value; render();
   }));
 }
 
-registerTabOpener('graph', openWorldGraph);
+registerTabOpener('graph', openGraphTab);

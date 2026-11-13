@@ -274,11 +274,13 @@ if (ACCESS_TOKEN) {
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ---------- App info ----------
+// 起動ごとの識別子。Electron側が「ポートを奪っている別インスタンス」を検知するために使う
+const BOOT_ID = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
 app.get('/api/version', (req, res) => {
   try {
     const p = require('./package.json');
-    res.json({ name: p.productName || p.name, version: p.version || '' });
-  } catch { res.json({ name: 'AI Novelist Studio', version: '' }); }
+    res.json({ name: p.productName || p.name, version: p.version || '', boot: BOOT_ID });
+  } catch { res.json({ name: 'AI Novelist Studio', version: '', boot: BOOT_ID }); }
 });
 
 // ---------- Readability（jReadability: MeCab+UniDicがあれば実計測、なければ近似） ----------
@@ -1044,3 +1046,5 @@ function restartListener() {
   setTimeout(startListener, 300);
 }
 startListener();
+
+module.exports = { bootId: BOOT_ID };

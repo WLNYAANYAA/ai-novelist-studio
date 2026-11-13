@@ -33,7 +33,7 @@ export function appDialog(message, { input = false, defValue = '', okText = 'OK'
     if (cancelBtn) cancelBtn.onclick = () => done(input ? null : false);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) done(input ? null : false); });
     if (inp) inp.onkeydown = (e) => {
-      if (e.key === 'Enter') done(inp.value);
+      if (e.key === 'Enter' && !e.isComposing) done(inp.value);
       if (e.key === 'Escape') done(null);
     };
     setTimeout(() => { if (inp) { inp.focus(); inp.select(); } else overlay.querySelector('.dlg-ok').focus(); }, 50);

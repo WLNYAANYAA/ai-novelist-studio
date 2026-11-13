@@ -3,12 +3,13 @@
    ============================================================ */
 
 :root {
+  color-scheme: light;
   --bg: #f3f3f5;
-  --bg-panel: rgba(255, 255, 255, 0.72);
-  --bg-sidebar: rgba(255, 255, 255, 0.55);
+  --bg-panel: #ffffff;
+  --bg-sidebar: #f5f5f7;
   --bg-sidebar-hover: rgba(0, 0, 0, 0.05);
   --bg-sidebar-active: rgba(0, 0, 0, 0.09);
-  --bg-input: rgba(255, 255, 255, 0.65);
+  --bg-input: #f0f0f2;
   --text: #262626;
   --text-dim: #8f8f8f;
   --text-sidebar: #555555;
@@ -29,12 +30,13 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --bg: #101012;
-    --bg-panel: rgba(30, 30, 34, 0.66);
-    --bg-sidebar: rgba(22, 22, 26, 0.55);
+    --bg-panel: #1d1d22;
+    --bg-sidebar: #17171b;
     --bg-sidebar-hover: rgba(255, 255, 255, 0.06);
     --bg-sidebar-active: rgba(255, 255, 255, 0.11);
-    --bg-input: rgba(255, 255, 255, 0.07);
+    --bg-input: #26262c;
     --text: #ececec;
     --text-dim: #9c9c9c;
     --text-sidebar: #b8b8b8;
@@ -48,12 +50,13 @@
   }
 }
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --bg: #101012;
-  --bg-panel: rgba(30, 30, 34, 0.66);
-  --bg-sidebar: rgba(22, 22, 26, 0.55);
+  --bg-panel: #1d1d22;
+  --bg-sidebar: #17171b;
   --bg-sidebar-hover: rgba(255, 255, 255, 0.06);
   --bg-sidebar-active: rgba(255, 255, 255, 0.11);
-  --bg-input: rgba(255, 255, 255, 0.07);
+  --bg-input: #26262c;
   --text: #ececec;
   --text-dim: #9c9c9c;
   --text-sidebar: #b8b8b8;
@@ -203,8 +206,13 @@ button {
   font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   padding-right: 66px;
 }
+.conv-item .title.conv-title-flex { display: flex; align-items: center; gap: 5px; }
+.conv-item .title .conv-title-text {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  min-width: 0; font-weight: 500;
+}
 .conv-rename {
-  width: 100%; font: inherit; font-weight: 500; color: inherit;
+  flex: 1; min-width: 0; font: inherit; font-weight: 500; color: inherit;
   background: var(--bg-panel); border: 1px solid var(--accent);
   border-radius: 6px; padding: 2px 6px; outline: none;
 }
@@ -1095,11 +1103,7 @@ body.cat-ears #convTitle::after { left: 26px; transform: rotate(14deg); }
 .diff-sign { display: inline-block; width: 1.2em; user-select: none; opacity: .7; }
 #resultBody { font-family: monospace; }
 
-/* ---------- Glass（すりガラス質感） ---------- */
-#sidebar, #topbar, #composer, .modal-content, .dropdown-menu, #manuscriptPane, #docPane, .sel-popup {
-  -webkit-backdrop-filter: blur(20px) saturate(1.6);
-  backdrop-filter: blur(20px) saturate(1.6);
-}
+/* ---------- Glass（すりガラス質感） → 廃止：背景を不透明化したためblurは不要 ---------- */
 /* メッセージ吹き出しは半透明ガラス（個別blurは重いので背景のみ） */
 .msg.bot { background: var(--bg-panel); }
 /* 入力系を一段柔らかく */
@@ -1189,8 +1193,8 @@ ruby rt { font-size: 0.55em; color: var(--text-dim); }
 }
 #graphBody { flex: 1; display: flex; min-height: 0; }
 #graphCanvasWrap { flex: 1; position: relative; min-width: 0; overflow: hidden; }
-#graphSvg { width: 100%; height: 100%; display: block; cursor: grab; }
-#graphSvg:active { cursor: grabbing; }
+#graphSvg { width: 100%; height: 100%; display: block; cursor: default; }
+#graphSvg:active { cursor: move; }
 .gnode { cursor: pointer; }
 .gnode.dim { opacity: 0.18; }
 .gnode-rect { transition: stroke-width 0.1s; }
@@ -1292,13 +1296,14 @@ button,
 }
 .gedge:hover { stroke-width: 2.4; opacity: 0.95; }
 
-/* 会話スター */
+/* 会話スター（タイトル行の先頭・ホバー/スター済みのみ表示） */
 .conv-item .conv-star {
-  position: absolute; right: 66px; top: 10px;
-  color: var(--text-dim); cursor: pointer; font-size: 13px; padding: 2px;
-  display: none; z-index: 1;
+  flex-shrink: 0; font-weight: 400;
+  color: var(--text-dim); cursor: pointer; font-size: 13px; padding: 1px 3px;
+  display: none;
 }
-.conv-item:hover .conv-star, .conv-item .conv-star.on { display: inline-flex; }
+.conv-item .conv-star.on { display: inline-flex; }
+.conv-item:hover .conv-star { display: inline-flex; }
 .conv-item .conv-star.on { color: #e8b93c; }
 .conv-item .conv-star:hover { color: var(--accent); }
 /* 原稿シーン・章の並び替えボタン（ホバー時のみ表示） */
@@ -1394,3 +1399,7 @@ button,
 .tm-diff-add { background: rgba(80,200,120,.12); color: #7fd8a0; }
 .tm-diff-del { background: rgba(220,80,80,.12); color: #f0a0a0; }
 .tm-diff-skip { color: var(--text-dim); text-align: center; }
+
+/* グラフのピン留めボタン（SVGアイコン版） */
+.graph-pin-on { color: var(--accent); border-color: var(--accent); }
+.graph-pin-on .icon { transform: rotate(45deg); }

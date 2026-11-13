@@ -106,6 +106,7 @@ function doSearch() {
     div.querySelector('.sr-one').onclick = async () => {
       const n = await replaceTargets([g.t]);
       $('srStatus').textContent = `${n}件を置換しました`;
+      targets = await collectTargets(); // 置換後の最新内容で再検索
       doSearch();
     };
     el.appendChild(div);
@@ -178,7 +179,10 @@ export function openSearchReplace() {
   $('srQuery').focus();
   $('srQuery').select();
   setStatus('');
-  collectTargets().then(t => { targets = t; });
+  collectTargets().then(t => {
+    targets = t;
+    if ($('srQuery')?.value) doSearch(); // 読み込み完了時に入力済みなら即検索
+  });
 }
 function setStatus(msg) { const el = $('srStatus'); if (el) el.textContent = msg; }
 
@@ -190,7 +194,7 @@ export function initSearchReplace() {
   $('miSearchReplace') && ($('miSearchReplace').onclick = openSearchReplace);
   $('srSearch') && ($('srSearch').onclick = () => { setStatus('検索中…'); setTimeout(doSearch, 30); });
   $('srQuery') && $('srQuery').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); $('srSearch').click(); }
+    if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); $('srSearch').click(); }
   });
   $('srReplaceAll') && ($('srReplaceAll').onclick = async () => {
     const q = $('srQuery').value;
@@ -207,6 +211,7 @@ export function initSearchReplace() {
     setStatus('置換中…');
     const n = await replaceTargets(list);
     setStatus(`${n}件を置換しました`);
+    targets = await collectTargets(); // 置換後の最新内容で再検索
     doSearch();
   });
 }

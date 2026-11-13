@@ -172,7 +172,14 @@ function projectText(kind, id, dataStr) {
     }
     if (kind === 'doc' || kind === 'source') {
       const html = j.content || j.text || '';
-      return String(html).replace(/<[^>]+>/g, '\n').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ');
+      // ブロック要素の終了タグだけ改行にし、他のタグは空白化（差分が読みやすい）
+      return String(html)
+        .replace(/<\s*br\s*\/?>/gi, '\n')
+        .replace(/<\s*\/\s*(p|div|li|h[1-6]|tr|section|article|blockquote|ul|ol)\s*>/gi, '\n')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+        .replace(/[ \t]+/g, ' ');
     }
     if (kind === 'card') return `カード: ${j.name || ''}\n[${j.kind || ''}]\n${j.content || ''}`;
     // その他: JSONを読みやすく
@@ -256,7 +263,7 @@ export function initTimeMachine() {
   });
   $('tmSave') && ($('tmSave').onclick = record);
   $('tmLabel') && $('tmLabel').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') record();
+    if (e.key === 'Enter' && !e.isComposing) record();
   });
   $('btnCloseTmDiff') && ($('btnCloseTmDiff').onclick = () => $('tmDiffModal').classList.add('hidden'));
   $('tmDiffModal') && $('tmDiffModal').addEventListener('click', (e) => {

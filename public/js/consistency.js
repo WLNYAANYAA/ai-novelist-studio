@@ -34,12 +34,13 @@ async function collectTexts() {
   for (const s of listManuscriptScenes()) {
     out.push({ type: 'scene', id: s.id, label: `${s.chapter} / ${s.title}`, text: s.content || '' });
   }
-  for (const d of allDocs.slice(0, 80)) {
+  const docs = await Promise.all(allDocs.slice(0, 80).map(async (d) => {
     try {
       const f = await api('/api/documents/' + d.id);
-      out.push({ type: 'doc', id: f.id, label: f.title || '無題', text: stripHtml(f.content) });
-    } catch {}
-  }
+      return { type: 'doc', id: f.id, label: f.title || '無題', text: stripHtml(f.content) };
+    } catch { return null; }
+  }));
+  out.push(...docs.filter(Boolean));
   for (const s of allSources) {
     out.push({ type: 'source', id: s.id, label: s.name || '無題', text: s.content || '' });
   }
