@@ -34,7 +34,7 @@ async function collectTexts() {
   for (const s of listManuscriptScenes()) {
     out.push({ type: 'scene', id: s.id, label: `${s.chapter} / ${s.title}`, text: s.content || '' });
   }
-  const docs = await Promise.all(allDocs.slice(0, 80).map(async (d) => {
+  const docs = await Promise.all(allDocs.map(async (d) => {
     try {
       const f = await api('/api/documents/' + d.id);
       return { type: 'doc', id: f.id, label: f.title || '無題', text: stripHtml(f.content) };

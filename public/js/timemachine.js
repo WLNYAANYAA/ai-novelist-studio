@@ -17,7 +17,8 @@ let snaps = [];
 let cmpA = null, cmpB = null;
 
 async function loadList() {
-  snaps = await api('/api/timemachine');
+  try { snaps = await api('/api/timemachine'); }
+  catch { snaps = []; }
   renderList();
 }
 function renderList() {

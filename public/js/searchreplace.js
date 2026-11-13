@@ -19,12 +19,12 @@ async function collectTargets() {
     type: 'scene', id: s.id, label: `${s.chapter} / ${s.title}`, content: s.content || ''
   }));
   const docs = [];
-  for (const d of allDocs.slice(0, 80)) {
+  await Promise.all(allDocs.map(async (d) => {
     try {
       const f = await api('/api/documents/' + d.id);
       docs.push({ type: 'doc', id: f.id, label: f.title || '無題', content: f.content || '', html: true });
     } catch {}
-  }
+  }));
   const sources = allSources.map(s => ({
     type: 'source', id: s.id, label: s.name || '無題', content: s.content || '', project: s.project || ''
   }));
@@ -123,6 +123,16 @@ function jumpTo(t) {
   $('srModal')?.classList.add('hidden');
 }
 
+// HTMLタグの内側（タグ名・属性）は置換しない。本文テキスト部分だけに適用する
+function replaceInHtml(html, re, rep) {
+  let count = 0;
+  const out = html.split(/(<[^>]*>)/).map(seg => {
+    if (seg.startsWith('<')) return seg;
+    return seg.replace(re, () => { count++; return rep; });
+  }).join('');
+  return { out, count };
+}
+
 // 1ターゲットの置換。戻り値は置換件数
 async function replaceOne(t, re) {
   const rep = $('srReplace').value;
@@ -132,11 +142,11 @@ async function replaceOne(t, re) {
   if (t.type === 'doc') {
     const full = await api('/api/documents/' + t.id);
     const content = full.content || '';
-    const n = (content.match(re) || []).length;
+    const { out, count: n } = replaceInHtml(content, re, rep);
     if (!n) return 0;
     await api('/api/documents/' + t.id, {
       method: 'PUT',
-      body: JSON.stringify({ title: full.title, project: full.project || '', content: content.replace(re, () => rep) })
+      body: JSON.stringify({ title: full.title, project: full.project || '', content: out })
     });
     await refreshDocuments();
     return n;

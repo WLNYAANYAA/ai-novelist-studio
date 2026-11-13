@@ -180,12 +180,13 @@ async function scanMentions() {
   for (const s of allSources) {
     if (s.content) texts.push({ nodeId: 'src:' + s.id, text: s.content });
   }
-  for (const d of allDocs.slice(0, 60)) {
+  const docTexts = await Promise.all(allDocs.map(async (d) => {
     try {
       const full = await api('/api/documents/' + d.id);
-      texts.push({ nodeId: 'doc:' + full.id, text: stripHtml(full.content) });
-    } catch {}
-  }
+      return { nodeId: 'doc:' + full.id, text: stripHtml(full.content) };
+    } catch { return null; }
+  }));
+  texts.push(...docTexts.filter(Boolean));
   // カード本文も対象（カード→カードの言及が見える。自己言及は除外）
   for (const c of allCards) {
     const t = [c.name, c.content].filter(Boolean).join('\n');

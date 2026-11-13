@@ -322,7 +322,9 @@ function bindUI() {
       if (e.target.closest('.menu-item') && !e.target.closest('select')) menu.classList.add('hidden');
     });
   });
-  document.addEventListener('click', () => {
+  document.addEventListener('click', (e) => {
+    // メニュー内部（セレクト・ボタン等）の操作では閉じない
+    if (e.target.closest && e.target.closest('.dropdown')) return;
     document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.add('hidden'));
   });
   initSelectionPopup();
