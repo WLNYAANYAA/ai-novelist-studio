@@ -2,7 +2,7 @@
 import { $, chatEl, inputEl, convTitleEl, searchBox, searchResultsEl } from './dom.js';
 import { api, esc, appPrompt } from './util.js';
 import { config, fun, abortCtrl, allTemplates, current, setConfig, setAllCards, setAllTemplates } from './state.js';
-import { loadManuscript, toggleManuscriptPane, exportManuscript, msAddChapter, msAddScene, msDelete, msDuplicateScene, msDuplicateChapter, msScene, scheduleMsSave, msSetGoal, msForeshadowCheck, updateMsStats, openWritingChart, openChapterChart, msAiWrite, toggleMsBoard, toggleMsVertical, restoreMsVertical, msShowAiParts } from './manuscript.js';
+import { loadManuscript, toggleManuscriptPane, exportManuscript, msAddChapter, msAddScene, msDelete, msDuplicateScene, msDuplicateChapter, msScene, scheduleMsSave, msSetGoal, msForeshadowCheck, updateMsStats, openWritingChart, openChapterChart, msAiWrite, toggleMsBoard, toggleMsVertical, restoreMsVertical, msShowAiParts, initReadability } from './manuscript.js';
 import { refreshSources, openSourcesModal, fillSourceProjectSelect, resetSourceForm, saveSource, deleteSource, importSourceFile, renderSourceList } from './sources.js';
 import { refreshDocuments, initDocEditor } from './documents.js';
 import { refreshConvList, restoreTabs, newConversation, renameConversation, saveProfile, deleteSelectedConvs, clearConvSelection, renderConvList, onSearchInput, queueDraftSave, refreshSceneSelect } from './conversations.js';
@@ -23,6 +23,8 @@ import { initSearchReplace } from './searchreplace.js';
 import { initConsistency } from './consistency.js';
 import { initTimeMachine } from './timemachine.js';
 import { initCowrite } from './cowrite.js';
+import { initAskWork } from './askwork.js';
+import { initGhostWrite } from './ghostwrite.js';
 
 // ---------- Init ----------
 async function init() {
@@ -122,6 +124,9 @@ function bindUI() {
   initConsistency();
   initTimeMachine();
   initCowrite();
+  initAskWork();
+  initGhostWrite();
+  initReadability();
   initScrollWatch();
   $('btnSettings').onclick = openSettings;
   convTitleEl.title = 'ダブルクリックで会話名を変更';

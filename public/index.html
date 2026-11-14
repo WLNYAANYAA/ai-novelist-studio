@@ -154,6 +154,7 @@
             <button class="menu-item" id="miTimeMachine"><svg class="icon"><use href="#i-refresh"/></svg> タイムマシン</button>
             <button class="menu-item" id="miConsistency"><svg class="icon"><use href="#i-search"/></svg> 一貫性チェック</button>
             <button class="menu-item" id="miSearchReplace"><svg class="icon"><use href="#i-search"/></svg> 横断検索・置換</button>
+            <button class="menu-item" id="miAskWork"><svg class="icon"><use href="#i-sparkle"/></svg> 作品に聞く（AI横断Q&A）</button>
             <button class="menu-item" id="btnHistory"><svg class="icon"><use href="#i-refresh"/></svg> 版の履歴</button>
           </div>
         </div>
@@ -432,7 +433,10 @@
               </div>
             </div>
           </div>
-          <div class="hint" id="msStatus"></div>
+          <div class="ms-editor-foot">
+            <div class="hint" id="msStatus"></div>
+            <span id="msReadability" class="ms-readability hidden" title=""></span>
+          </div>
         </div>
       </aside>
     </div>
@@ -743,6 +747,24 @@
         <span id="srStatus" class="hint"></span>
       </div>
       <div id="srResults" style="max-height:50vh;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 作品に聞く（AI横断Q&A）モーダル -->
+<div id="askModal" class="modal hidden">
+  <div class="modal-content" style="width:min(720px,94vw)">
+    <div class="modal-header">
+      <h2><svg class="icon"><use href="#i-sparkle"/></svg> 作品に聞く</h2>
+      <button class="modal-close" id="btnCloseAsk"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="params-row">
+        <input type="text" id="askQuery" placeholder="作品全体への質問（例：このキャラの記憶に矛盾ある？ / 第3章を3行で）" style="flex:1">
+        <button id="askSend" class="btn-primary btn-sm">質問</button>
+      </div>
+      <div class="hint" id="askStatus"></div>
+      <div id="askAnswer" style="max-height:52vh;overflow-y:auto;margin-top:8px;line-height:1.8"></div>
     </div>
   </div>
 </div>

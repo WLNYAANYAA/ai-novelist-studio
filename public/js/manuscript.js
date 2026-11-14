@@ -308,6 +308,36 @@ function updateMsEditor() {
   const sc = msScene();
   $('msSceneTitle').value = sc ? sc.title : '';
   $('msEditor').value = sc ? sc.content : '';
+  clearTimeout(rdTimer);
+  $('msReadability')?.classList.add('hidden');
+}
+
+// ---------- リアルタイム読みやすさゲージ ----------
+let rdTimer = null, rdSeq = 0;
+async function runReadability() {
+  const ta = $('msEditor');
+  const g = $('msReadability');
+  if (!ta || !g) return;
+  const text = ta.value || '';
+  if (text.trim().length < 30) { g.classList.add('hidden'); return; }
+  const seq = ++rdSeq;
+  try {
+    const r = await api('/api/readability', { method: 'POST', body: JSON.stringify({ text: text.slice(0, 20000) }) });
+    if (seq !== rdSeq || !$('msEditor')) return;
+    const s = r.score;
+    const label = s >= 5 ? '読みやすい' : s >= 4 ? 'やや読みやすい' : s >= 3 ? '普通' : '難しめ';
+    g.textContent = `読みやすさ ${s.toFixed(1)}（${label}）`;
+    g.className = 'ms-readability ' + (s >= 4 ? 'good' : s >= 3 ? 'mid' : 'low');
+    g.title = (r.approx ? '近似計算' : 'jReadability実測') + ' / 平均文長 ' + (r.metrics?.avgSentenceLen ?? '—') + '字';
+  } catch { /* 計測失敗時は非表示のまま */ }
+}
+export function initReadability() {
+  const ta = $('msEditor');
+  if (!ta) return;
+  ta.addEventListener('input', () => {
+    clearTimeout(rdTimer);
+    rdTimer = setTimeout(runReadability, 1200);
+  });
 }
 export function toggleManuscriptPane() {
   const pane = $('manuscriptPane');

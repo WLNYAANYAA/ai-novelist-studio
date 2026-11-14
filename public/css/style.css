@@ -976,6 +976,45 @@ body.cat-ears #convTitle::after { left: 26px; transform: rotate(14deg); }
   background: var(--bg-input); color: var(--text);
 }
 .ms-ai-btns { display: flex; gap: 6px; justify-content: flex-end; }
+
+/* ---------- Tabゴースト補完 ---------- */
+.ms-editor-body { position: relative; flex: 1; min-height: 0; display: flex; }
+.ms-editor-body #msEditor { flex: 1; min-height: 140px; }
+.ms-ghost {
+  position: absolute; pointer-events: none; overflow: hidden;
+  font-family: var(--font-prose); font-size: 14px; line-height: 1.8; font-weight: 400;
+  padding: 13px 15px; box-sizing: border-box;
+  white-space: pre-wrap; overflow-wrap: break-word; word-break: break-word;
+  color: transparent; z-index: 2;
+}
+.ms-ghost .gh-text { color: transparent; }
+.ms-ghost .gh-sug {
+  color: var(--text-dim); opacity: 0.6;
+  border-bottom: 1px dashed var(--border-strong);
+}
+
+/* ---------- 作品に聞く：出典チップ ---------- */
+.ask-src {
+  display: inline-block; margin: 0 2px; padding: 0 7px; font-size: 11px;
+  border: 1px solid var(--border-strong); border-radius: 999px;
+  background: var(--bg-input); color: var(--accent);
+  cursor: pointer; vertical-align: baseline; font-family: inherit;
+}
+.ask-src:hover { border-color: var(--accent); background: var(--accent-soft); }
+
+/* ---------- 読みやすさゲージ ---------- */
+.ms-editor-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 14px; }
+.ms-readability {
+  font-size: 11px; padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+  border: 1px solid var(--border);
+}
+.ms-readability.good { color: #3d8a5a; border-color: rgba(61,138,90,.4); background: rgba(61,138,90,.08); }
+.ms-readability.mid { color: var(--text-dim); }
+.ms-readability.low { color: var(--danger); border-color: rgba(217,106,95,.4); background: rgba(217,106,95,.08); }
+@media (prefers-color-scheme: dark) {
+  .ms-readability.good { color: #7fc79a; }
+}
+:root[data-theme="dark"] .ms-readability.good { color: #7fc79a; }
 @media (max-width: 760px) {
   #manuscriptPane { position: fixed; inset: 0; z-index: 90; width: auto; border-left: none; }
   .ms-editor { max-height: none; }
@@ -1131,8 +1170,12 @@ body.cat-ears #convTitle::after { left: 26px; transform: rotate(14deg); }
 /* メッセージ吹き出しは半透明ガラス（個別blurは重いので背景のみ） */
 .msg.bot { background: var(--bg-panel); }
 /* 入力系を一段柔らかく */
-#input, #msEditor, .conv-rename, select, input[type="text"], input[type="number"], textarea {
+#input, #msEditor, .conv-rename, select, input[type="text"], input[type="number"], input[type="search"], textarea {
   border-color: var(--border);
+}
+/* キャレット（文字カーソル）色をテーマ連動で明示。UAのcolor-scheme任せだと環境により白くなることがある */
+input, textarea, select, [contenteditable="true"], [contenteditable=""], .ProseMirror {
+  caret-color: var(--accent);
 }
 #input:focus, #msEditor:focus, select:focus, input[type="text"]:focus, input[type="number"]:focus, textarea:focus {
   border-color: var(--border-strong);

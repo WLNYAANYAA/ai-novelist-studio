@@ -13,7 +13,9 @@ app.setPath('userData', path.join(os.homedir(), 'AppData', 'Roaming', 'AI Noveli
 // 場合は下記を復活させること。
 // app.disableHardwareAcceleration();
 // app.commandLine.appendSwitch('disable-gpu');
-// app.commandLine.appendSwitch('disable-gpu-compositing');
+// GPUコンポジットのみ無効化：一部環境でカーソルレイヤーが白く描画される不具合の対策。
+// フルGPU無効化ほど重くならない。
+app.commandLine.appendSwitch('disable-gpu-compositing');
 // app.commandLine.appendSwitch('disable-gpu-sandbox');
 // app.commandLine.appendSwitch('no-sandbox');
 
